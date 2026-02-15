@@ -1,0 +1,82 @@
+/**:
+  ros__parameters:
+    # Simulation configuration
+    simulation:
+      physics_engine: "dart"          # Physics engine: dart, bullet, ode
+      real_time_factor: 1.0           # Target real-time factor
+      update_rate: 100.0              # Physics update rate (Hz)
+      max_step_size: 0.001            # Maximum physics step size (seconds)
+      
+    # Terrain configuration
+    terrain:
+      type: "heightmap"               # Terrain type: heightmap, mesh, flat
+      size: [100.0, 100.0, 20.0]      # Terrain dimensions [length, width, height] (meters)
+      material: "dirt"                # Material type: dirt, sand, gravel, mud, rock
+      friction: 0.8                   # Primary friction coefficient
+      friction2: 0.7                  # Secondary friction coefficient
+      restitution: 0.1                # Bounce/restitution coefficient
+      roughness: 0.5                  # Terrain roughness (0.0-1.0)
+      
+    # Vehicle configuration
+    vehicle:
+      model: "offroad_4x4"            # Vehicle model name
+      namespace: "/vehicle"           # ROS topic namespace
+      initial_pose:                   # Initial spawn pose [x, y, z, roll, pitch, yaw]
+        x: 0.0
+        y: 0.0
+        z: 0.5
+        roll: 0.0
+        pitch: 0.0
+        yaw: 0.0
+      
+    # Sensor configuration
+    sensors:
+      imu:
+        enabled: true
+        update_rate: 100.0            # Hz
+        noise_enabled: true
+        angular_velocity_stddev: 0.02
+        linear_acceleration_stddev: 0.1
+        
+      gps:
+        enabled: true
+        update_rate: 10.0             # Hz
+        noise_enabled: true
+        horizontal_position_stddev: 2.0  # meters
+        vertical_position_stddev: 3.0    # meters
+        
+      lidar:
+        enabled: true
+        update_rate: 10.0             # Hz
+        samples: 640
+        resolution: 1.0
+        min_range: 0.1                # meters
+        max_range: 100.0              # meters
+        min_angle: -3.14159           # radians
+        max_angle: 3.14159            # radians
+        noise_enabled: true
+        noise_stddev: 0.01
+        
+      camera:
+        enabled: true
+        update_rate: 30.0             # Hz
+        width: 640
+        height: 480
+        format: "RGB8"
+        horizontal_fov: 1.57          # radians (90 degrees)
+        near_clip: 0.1                # meters
+        far_clip: 100.0               # meters
+        
+    # Adapter configuration
+    adapter:
+      command_timeout: 0.1            # seconds
+      state_publish_rate: 100.0       # Hz
+      coordinate_frame: "base_link"
+      world_frame: "odom"
+      
+    # Performance tuning
+    performance:
+      use_gpu_rendering: true
+      shadow_quality: "medium"        # low, medium, high
+      particle_effects: true
+      max_contacts: 20                # Maximum contact points per collision

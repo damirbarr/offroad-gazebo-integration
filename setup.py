@@ -24,6 +24,7 @@ setup(
             'gazebo_adapter_node = gazebo_adapter.adapter:main',
             'terrain_generator = gazebo_adapter.terrain:main',
             'bridge_manager = gazebo_adapter.bridge:main',
+            'udp_bridge = gazebo_adapter.udp_bridge:main',
         ],
     },
 )

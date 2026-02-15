@@ -1,209 +1,320 @@
 # Quick Start Guide
 
-Get up and running with off-road autonomy simulation in 5 minutes.
+Get Gazebo off-road simulation running with av-simulation in **less than 5 minutes**.
 
 ## Prerequisites
 
-```bash
-# Ubuntu 22.04 (Jammy) or later
-# ROS 2 Humble or later
+- **Docker** installed and running
+- **av-simulation** built with the UDP adapter from PR [gazebo-udp-adapter](https://github.com/ottopia-tech/av-simulation/tree/gazebo-udp-adapter)
 
-# Install ROS2 (if not already installed)
-sudo apt update
-sudo apt install ros-humble-desktop
-
-# Install Gazebo Sim
-sudo apt install gz-harmonic
-
-# Install ROS-Gazebo bridge
-sudo apt install ros-humble-ros-gz-bridge ros-humble-ros-gz-sim
-
-# Build tools
-sudo apt install python3-colcon-common-extensions python3-pip
-pip3 install numpy pillow pyyaml
-```
-
-## Installation
+## Step 1: Build av-simulation with UDP Adapter
 
 ```bash
-# Create workspace
-mkdir -p ~/av_ws/src
-cd ~/av_ws/src
-
-# Clone this repository
-git clone https://github.com/damirbarr/offroad-gazebo-integration.git
-
-# Clone av-simulation (replace with actual repo)
-# git clone https://github.com/ottopia-tech/av-simulation.git
-
-# Build
-cd ~/av_ws
-colcon build
-
-# Source workspace
-source install/setup.bash
+cd /path/to/av-simulation
+git checkout gazebo-udp-adapter
+conan install . --build=missing
+cmake --preset conan-release
+cmake --build --preset conan-release
 ```
 
-## Running Your First Simulation
+## Step 2: Configure av-simulation
 
-### Terminal 1: Launch Gazebo World
+Add to your av-simulation config file (e.g., `configs/simulation.ini`):
+
+```ini
+[udp_gazebo]
+server_ip = 127.0.0.1           # Gazebo bridge IP (use host.docker.internal for Docker)
+server_port = 9001              # Port for sending commands to Gazebo
+client_ip = 127.0.0.1           # Local IP for receiving sensor data
+client_port = 9002              # Port for receiving from Gazebo
+send_interval_ms = 10           # 100 Hz command rate
+receive_timeout_ms = 100
+heartbeat_timeout_ms = 5000
+polling_interval_ms = 1
+max_packet_size = 4096
+```
+
+**For Docker:** If running Gazebo in Docker and av-simulation on host:
+```ini
+server_ip = host.docker.internal  # Docker host machine
+```
+
+## Step 3: Build Gazebo Docker Image
 
 ```bash
-source ~/av_ws/install/setup.bash
-ros2 launch offroad_gazebo_integration offroad_world.launch.py
+cd /path/to/offroad-gazebo-integration
+make build
 ```
 
-This will:
-- Start Gazebo Sim with desert terrain
-- Launch the ROS-Gazebo bridge
-- Spawn vehicle at origin
+This builds a Docker image with:
+- ROS2 Humble
+- Gazebo Harmonic
+- All simulation dependencies
+- offroad-gazebo-integration package
 
-### Terminal 2: Launch Gazebo Adapter (for av-simulation)
+Takes ~10 minutes on first build (Docker caches for future builds).
+
+## Step 4: Run Gazebo Simulation
+
+**Option A: All-in-one (Recommended)**
 
 ```bash
-source ~/av_ws/install/setup.bash
-ros2 launch offroad_gazebo_integration gazebo_adapter.launch.py
+make run
 ```
 
-This starts the adapter that connects Gazebo to the av-simulation framework.
+This starts:
+1. Gazebo world with off-road terrain
+2. UDP bridge for av-simulation communication
 
-### Terminal 3: Send Test Commands
+**Option B: Separate terminals**
+
+Terminal 1 - Gazebo world:
+```bash
+make run-world
+```
+
+Terminal 2 - UDP bridge:
+```bash
+make run-udp
+```
+
+## Step 5: Run av-simulation
+
+In a new terminal (on host machine):
 
 ```bash
-source ~/av_ws/install/setup.bash
-
-# Drive forward
-ros2 topic pub /vehicle/cmd_vel geometry_msgs/msg/Twist \
-  '{linear: {x: 2.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}' \
-  --rate 10
-
-# Stop (Ctrl+C the above, then)
-ros2 topic pub /vehicle/cmd_vel geometry_msgs/msg/Twist \
-  '{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}' \
-  --once
+cd /path/to/av-simulation
+./build/Release/av_simulation /path/to/configs/ --adapter=udp_gazebo
 ```
 
-### Terminal 4: Monitor Sensor Data
+You should see:
+```
+[INFO] Creating UDP Gazebo adapter
+[INFO]   Server: 127.0.0.1:9001
+[INFO]   Client: 127.0.0.1:9002
+[INFO] UDP Adapter initialized
+```
 
+## Step 6: Control the Vehicle
+
+Use av-simulation's API or joystick to send commands. The vehicle will move in Gazebo!
+
+**Example with API:**
 ```bash
-source ~/av_ws/install/setup.bash
-
-# Watch odometry
-ros2 topic echo /vehicle/odom
-
-# Watch IMU
-ros2 topic echo /vehicle/imu
-
-# Watch GPS
-ros2 topic echo /vehicle/gps
-
-# List all topics
-ros2 topic list
+# From av-simulation API
+curl -X POST http://localhost:8080/drive \
+  -d '{"throttle": 0.5, "steering": 0.0}'
 ```
 
-## Using with av-simulation
-
-Once av-simulation is installed:
-
-```bash
-# Launch complete stack
-ros2 launch av_simulation simulation.launch.py \
-  adapter:=gazebo \
-  world:=desert_terrain
-```
-
-## Customizing Terrain
-
-### Use Different World
-
-```bash
-ros2 launch offroad_gazebo_integration offroad_world.launch.py \
-  world:=rocky_mountain
-```
-
-Available worlds:
-- `desert_terrain` (default) - Sandy desert environment
-- `forest_trail` - Wooded trail (TODO)
-- `rocky_mountain` - Steep rocky terrain (TODO)
-
-### Generate Custom Terrain
-
-```python
-from gazebo_adapter.terrain import TerrainManager, TerrainType
-
-manager = TerrainManager()
-
-config = {
-    'heightmap_size': (512, 512),
-    'height_range': (0, 20),
-    'roughness': 0.8,
-    'size': (200, 200, 20),
-    'type': 'mud',
-    'seed': 12345,
-    'heightmap_path': '/tmp/custom_terrain.png'
-}
-
-manager.generate_terrain_world(
-    world_name='custom_offroad',
-    terrain_config=config,
-    output_path='/tmp/custom_world.sdf'
-)
-```
-
-Then launch:
-
-```bash
-gz sim /tmp/custom_world.sdf
-```
+---
 
 ## Troubleshooting
 
-### Gazebo doesn't start
+### "Cannot connect to UDP server"
 
-Check Gazebo version:
+**Check if Gazebo bridge is running:**
 ```bash
-gz sim --version
+docker ps | grep gazebo-sim
 ```
 
-Should be Gazebo Sim (Harmonic) or later.
-
-### No topics visible
-
-Check bridge is running:
+**Check if ports are open:**
 ```bash
-ros2 node list | grep bridge
+nc -zvu 127.0.0.1 9001  # Command port
+nc -zvu 127.0.0.1 9002  # Sensor port
+```
+
+**Check logs:**
+```bash
+docker logs gazebo-sim
+```
+
+### "No sensor data received"
+
+**Verify Gazebo topics are publishing:**
+```bash
+# Open shell in container
+make shell
+
+# Check topics
 ros2 topic list
+ros2 topic echo /vehicle/odom
 ```
 
-### Vehicle falls through terrain
+### Vehicle not moving
 
-The terrain heightmap may not be loading. Check:
+1. **Check Gazebo GUI** (if running with display):
+   - Is the vehicle spawned?
+   - Is physics running?
+
+2. **Check ROS commands:**
+   ```bash
+   make shell
+   ros2 topic echo /vehicle/cmd_vel
+   ```
+   Should show velocity commands when av-simulation sends throttle.
+
+3. **Check UDP bridge:**
+   Look for "Received control command" in logs
+
+### Docker networking issues
+
+**If running av-simulation in a different Docker container:**
+
+Use bridge network:
 ```bash
-gz model --list
+# Create network
+docker network create sim-network
+
+# Run Gazebo with network
+docker run --network sim-network --name gazebo-sim ...
+
+# Run av-simulation with network
+docker run --network sim-network --name av-sim ...
+
+# Use container name as IP
+server_ip = gazebo-sim
 ```
 
-### Poor performance
+---
 
-Try:
+## Configuration Options
+
+### Custom UDP Ports
+
 ```bash
-# Headless mode (no GUI)
-ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=true
-
-# Or reduce physics rate in config/simulation.yaml
+make run AV_SIM_CMD_PORT=10001 AV_SIM_SENSOR_PORT=10002
 ```
+
+Update av-simulation config to match.
+
+### Custom av-simulation IP
+
+If av-simulation is on a different machine (e.g., 192.168.1.100):
+
+```bash
+make run AV_SIM_IP=192.168.1.100
+```
+
+### Different Terrain
+
+Edit `worlds/desert_terrain.sdf` or create new world files.
+
+---
+
+## Performance Tips
+
+**Running headless (no GUI):**
+```bash
+# Add headless:=true to launch
+docker run ... ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=true
+```
+
+**Reduce sensor rate:**
+```bash
+make run AV_SIM_SENSOR_PORT=9002  # Default is 50 Hz
+# Or edit config/simulation.yaml
+```
+
+**Hardware acceleration:**
+Ensure Docker has GPU access for better Gazebo performance:
+```bash
+docker run --gpus all ...
+```
+
+---
+
+## Development Workflow
+
+### Modify Terrain
+
+1. Edit `worlds/desert_terrain.sdf`
+2. Rebuild: `make build`
+3. Run: `make run`
+
+### Modify UDP Protocol
+
+1. Edit `src/gazebo_adapter/udp_bridge.py`
+2. Update av-simulation's `udp_adapter.cpp` to match
+3. Rebuild both
+4. Test end-to-end
+
+### Add Sensors
+
+1. Edit Gazebo world file (add sensor plugins)
+2. Update `udp_bridge.py` to subscribe to new topics
+3. Update UDP protocol struct in documentation
+4. Update av-simulation's parser
+
+---
 
 ## Next Steps
 
-1. **Read the full README.md** for detailed configuration options
-2. **Check out worlds/** for example terrain files
-3. **Modify config/simulation.yaml** for sensor tuning
-4. **Write your autonomy stack** and integrate via av-simulation
-5. **Create custom vehicles** by modifying models/
+- **Read UDP_INTEGRATION.md** for detailed protocol documentation
+- **Customize terrain** in `worlds/` directory
+- **Add vehicle models** in `models/` directory
+- **Tune physics** in `config/simulation.yaml`
 
-## Getting Help
+---
 
-- Issues: https://github.com/damirbarr/offroad-gazebo-integration/issues
-- Gazebo Docs: https://gazebosim.org/docs
-- ROS2 Docs: https://docs.ros.org/en/humble/
+## Help
+
+**Makefile commands:**
+```bash
+make help              # Show all available commands
+```
+
+**Check connectivity:**
+```bash
+make check-avsim       # Test if av-simulation is reachable
+```
+
+**View logs:**
+```bash
+docker logs -f gazebo-sim
+```
+
+**Interactive debugging:**
+```bash
+make shell             # Open bash in container
+```
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────┐
+│     av-simulation (host or container)    │
+│     UDP Adapter (udp_gazebo)             │
+└──────────────┬──────────────────────────┘
+               │ UDP (9001/9002)
+               │
+┌──────────────▼──────────────────────────┐
+│  Docker Container: offroad-gazebo-int    │
+│                                           │
+│  ┌────────────────────────────────────┐ │
+│  │  UDP Bridge (Python)                │ │
+│  │  - Receives commands on :9001       │ │
+│  │  - Sends sensors on :9002           │ │
+│  └──────────┬─────────────────────────┘ │
+│             │ ROS2 Topics                │
+│  ┌──────────▼─────────────────────────┐ │
+│  │  ros_gz_bridge                      │ │
+│  └──────────┬─────────────────────────┘ │
+│             │ Gazebo Transport           │
+│  ┌──────────▼─────────────────────────┐ │
+│  │  Gazebo Sim (Harmonic)              │ │
+│  │  - Physics engine                   │ │
+│  │  - Off-road terrain                 │ │
+│  │  - Vehicle simulation               │ │
+│  └─────────────────────────────────────┘ │
+└───────────────────────────────────────────┘
+```
+
+**Data Flow:**
+1. av-simulation sends control → UDP bridge → Gazebo (vehicle moves)
+2. Gazebo sensors → ros_gz_bridge → UDP bridge → av-simulation
+
+---
 
 Happy off-roading! 🚙💨

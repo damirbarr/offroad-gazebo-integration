@@ -1,13 +1,41 @@
 # Off-Road Autonomy Simulation Integration
 
 **Simulation Solution:** Gazebo Sim (Ignition Gazebo)  
-**Integration Target:** ottopia-tech/av-simulation (ros-adapter)  
-**Author:** Subagent for Damir Barr  
+**Integration Target:** ottopia-tech/av-simulation (UDP adapter)  
+**Author:** Genie for Damir Barr (Ottopia Technologies)  
 **Date:** 2026-02-15
+
+---
+
+## 🚀 Quick Start (Docker - Recommended)
+
+**Want to get started immediately?**
+
+```bash
+# 1. Build av-simulation with UDP adapter
+cd /path/to/av-simulation
+git checkout gazebo-udp-adapter
+conan install . --build=missing && cmake --preset conan-release && cmake --build --preset conan-release
+
+# 2. Build Gazebo Docker image
+cd /path/to/offroad-gazebo-integration
+make build
+
+# 3. Run Gazebo simulation
+make run
+
+# 4. In another terminal: Run av-simulation
+cd /path/to/av-simulation
+./build/Release/av_simulation configs/ --adapter=udp_gazebo
+```
+
+**📖 See [QUICKSTART.md](QUICKSTART.md) for detailed instructions and troubleshooting.**
+
+---
 
 ## Overview
 
-This package provides off-road terrain simulation capabilities for autonomous vehicle development using Gazebo Sim integrated with the Ottopia av-simulation framework via the ros-adapter interface.
+This package provides off-road terrain simulation capabilities for autonomous vehicle development using Gazebo Sim integrated with the Ottopia av-simulation framework via UDP communication.
 
 ## Why Gazebo Sim?
 
@@ -95,7 +123,39 @@ After evaluating multiple simulation platforms, Gazebo Sim was selected for:
 
 ## Installation
 
-### Prerequisites
+### Option 1: Docker (Recommended ⭐)
+
+**Fastest way to get started - no manual dependency installation!**
+
+```bash
+# Clone repository
+git clone https://github.com/damirbarr/offroad-gazebo-integration.git
+cd offroad-gazebo-integration
+
+# Build Docker image (includes ROS2 Humble + Gazebo Harmonic + all dependencies)
+make build
+
+# Run simulation
+make run
+```
+
+**Available Make targets:**
+- `make help` - Show all commands
+- `make build` - Build Docker image
+- `make run` - Run Gazebo + UDP bridge
+- `make run-world` - Run only Gazebo world
+- `make run-udp` - Run only UDP bridge
+- `make shell` - Open interactive shell
+- `make clean` - Remove Docker image
+- `make stop` - Stop running containers
+
+**See [QUICKSTART.md](QUICKSTART.md) for complete Docker workflow.**
+
+---
+
+### Option 2: Manual Installation
+
+#### Prerequisites
 
 ```bash
 # ROS2 Humble (or later)
@@ -109,9 +169,12 @@ sudo apt install ros-humble-ros-gz-bridge ros-humble-ros-gz-sim
 
 # Build tools
 sudo apt install python3-colcon-common-extensions
+
+# Python dependencies
+pip3 install numpy pillow pyyaml
 ```
 
-### Building
+#### Building
 
 ```bash
 # Clone this repository

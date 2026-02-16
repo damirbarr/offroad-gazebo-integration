@@ -8,7 +8,7 @@ This launch file starts Gazebo Sim with a configured off-road environment.
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch.conditions import IfCondition
+from launch.conditions import LaunchConfigurationEquals
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 import os
@@ -84,7 +84,7 @@ def generate_launch_description():
     gazebo_client = ExecuteProcess(
         cmd=['gz', 'sim', '-g'],
         output='screen',
-        condition=IfCondition(LaunchConfiguration('headless')),
+        condition=LaunchConfigurationEquals('headless', 'false'),
         shell=False
     )
     

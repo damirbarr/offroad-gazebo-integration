@@ -93,7 +93,9 @@
       </link>
     </model>
     
-    <!-- Desert terrain heightmap -->
+    <!-- Desert terrain heightmap - DISABLED: requires custom textures -->
+    <!-- Uncomment and add models/desert_heightmap/ with textures to enable -->
+    <!--
     <model name="desert_heightmap">
       <static>true</static>
       <link name="link">
@@ -133,6 +135,7 @@
         </visual>
       </link>
     </model>
+    -->
     
     <!-- Some rocks for obstacles -->
     <model name="rock_1">

@@ -1,9 +1,9 @@
 # Dockerfile for offroad-gazebo-integration
 # ROS2 Humble + Gazebo Harmonic + all dependencies
 
-FROM ros:humble-ros-base-jammy
+FROM ros:humble-ros-core-jammy
 
-# Install system dependencies
+# Install system dependencies + VNC for GUI in browser (macOS/Docker)
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
     ros-humble-ros-gz-bridge \
     ros-humble-ros-gz-sim \
+    xvfb \
+    x11vnc \
+    novnc \
+    websockify \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Gazebo Harmonic
@@ -35,6 +39,10 @@ RUN mkdir -p /workspace/src
 
 # Copy package
 COPY . /workspace/src/offroad_gazebo_integration/
+
+# Copy VNC startup script
+COPY scripts/run_with_vnc.sh /usr/local/bin/run_with_vnc.sh
+RUN chmod +x /usr/local/bin/run_with_vnc.sh
 
 # Build workspace
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \

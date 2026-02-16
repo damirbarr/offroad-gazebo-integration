@@ -1,7 +1,7 @@
 # Makefile for offroad-gazebo-integration
 # Quick start for Gazebo off-road simulation with av-simulation integration
 
-.PHONY: help build run run-udp run-world clean stop
+.PHONY: help build run run-udp run-world run-world-headless clean stop
 
 # Docker image name
 IMAGE_NAME := offroad-gazebo-integration
@@ -12,6 +12,9 @@ CONTAINER_NAME := gazebo-sim
 AV_SIM_IP ?= host.docker.internal
 AV_SIM_CMD_PORT ?= 9001
 AV_SIM_SENSOR_PORT ?= 9002
+
+# GUI: set to true for headless (no Gazebo UI)
+HEADLESS ?= false
 
 help:
 	@echo "╔════════════════════════════════════════════════════════════════╗"
@@ -30,7 +33,8 @@ help:
 	@echo "Commands:"
 	@echo "  make build            - Build Docker image with ROS2 Humble + Gazebo"
 	@echo "  make run              - Run Gazebo world + UDP bridge (all-in-one)"
-	@echo "  make run-world        - Run only Gazebo world"
+	@echo "  make run-world        - Run only Gazebo world (with GUI)"
+	@echo "  make run-world-headless - Run Gazebo world without GUI"
 	@echo "  make run-udp          - Run only UDP bridge (requires Gazebo running)"
 	@echo "  make shell            - Open interactive bash shell in container"
 	@echo "  make clean            - Remove Docker image"
@@ -40,6 +44,10 @@ help:
 	@echo "  AV_SIM_IP=$(AV_SIM_IP)"
 	@echo "  AV_SIM_CMD_PORT=$(AV_SIM_CMD_PORT)"
 	@echo "  AV_SIM_SENSOR_PORT=$(AV_SIM_SENSOR_PORT)"
+	@echo ""
+	@echo "GUI (macOS/Linux):"
+	@echo "  make run-world              - Gazebo UI in browser at http://localhost:8080/vnc.html"
+	@echo "  make run-world HEADLESS=true - without UI"
 	@echo ""
 	@echo "Example with custom IP:"
 	@echo "  make run AV_SIM_IP=192.168.1.100"
@@ -52,19 +60,18 @@ build:
 
 run: build
 	@echo "Starting Gazebo + UDP bridge..."
-	@echo "  • Gazebo world at http://localhost:8080 (if GUI enabled)"
+	@echo "  • Gazebo GUI: $(if $(filter true,$(HEADLESS)),disabled,open http://localhost:8080/vnc.html)"
 	@echo "  • UDP bridge: receiving on 0.0.0.0:$(AV_SIM_CMD_PORT), sending to $(AV_SIM_IP):$(AV_SIM_SENSOR_PORT)"
 	docker run -it --rm \
 		--name $(CONTAINER_NAME) \
-		--network host \
-		-e DISPLAY=$${DISPLAY} \
+		-p 8080:8080 \
 		-e AV_SIM_IP=$(AV_SIM_IP) \
 		-e AV_SIM_CMD_PORT=$(AV_SIM_CMD_PORT) \
 		-e AV_SIM_SENSOR_PORT=$(AV_SIM_SENSOR_PORT) \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
-		bash -c " \
+		$(if $(filter true,$(HEADLESS)),bash,run_with_vnc.sh bash) -c " \
 			echo 'Launching Gazebo world...' && \
-			ros2 launch offroad_gazebo_integration offroad_world.launch.py & \
+			ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=$(HEADLESS) & \
 			sleep 5 && \
 			echo 'Launching UDP bridge...' && \
 			ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
@@ -75,19 +82,27 @@ run: build
 
 run-world: build
 	@echo "Starting Gazebo world only..."
+	@echo "  • Gazebo GUI: $(if $(filter true,$(HEADLESS)),disabled,open http://localhost:8080/vnc.html)"
 	docker run -it --rm \
 		--name $(CONTAINER_NAME)-world \
-		--network host \
-		-e DISPLAY=$${DISPLAY} \
+		-p 8080:8080 \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
-		ros2 launch offroad_gazebo_integration offroad_world.launch.py
+		$(if $(filter true,$(HEADLESS)),,run_with_vnc.sh )ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=$(HEADLESS)
+
+run-world-headless: build
+	@echo "Starting Gazebo world (headless, no GUI)..."
+	docker run -it --rm \
+		--name $(CONTAINER_NAME)-world \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=true
 
 run-udp: build
 	@echo "Starting UDP bridge only..."
 	@echo "  (Ensure Gazebo is already running)"
 	docker run -it --rm \
 		--name $(CONTAINER_NAME)-udp \
-		--network host \
+		-p 9001:9001/udp \
+		-p 9002:9002/udp \
 		-e AV_SIM_IP=$(AV_SIM_IP) \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
 		ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
@@ -97,10 +112,10 @@ run-udp: build
 
 shell: build
 	@echo "Opening interactive shell..."
+	@echo "  Tip: run 'run_with_vnc.sh ros2 launch offroad_gazebo_integration offroad_world.launch.py' for GUI at http://localhost:8080/vnc.html"
 	docker run -it --rm \
 		--name $(CONTAINER_NAME)-shell \
-		--network host \
-		-e DISPLAY=$${DISPLAY} \
+		-p 8080:8080 \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
 		bash
 

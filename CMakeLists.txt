@@ -29,12 +29,21 @@ install(DIRECTORY src/gazebo_adapter
 )
 
 # Install Python executables
-install(PROGRAMS
-  src/gazebo_adapter/adapter.py
-  src/gazebo_adapter/bridge.py
-  src/gazebo_adapter/terrain.py
+install(PROGRAMS src/gazebo_adapter/adapter.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME gazebo_adapter_node
+)
+install(PROGRAMS src/gazebo_adapter/udp_bridge.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME udp_bridge
+)
+install(PROGRAMS src/gazebo_adapter/bridge.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME bridge
+)
+install(PROGRAMS src/gazebo_adapter/terrain.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME terrain
 )
 
 # Install launch files

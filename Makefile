@@ -1,7 +1,7 @@
 # Makefile for offroad-gazebo-integration
 # Quick start for Gazebo off-road simulation with av-simulation integration
 
-.PHONY: help build run run-udp run-world run-world-headless clean stop
+.PHONY: help build run run-udp run-world run-world-headless run-inspection run-inspection-headless clean stop
 
 # Docker image name
 IMAGE_NAME := offroad-gazebo-integration
@@ -35,6 +35,8 @@ help:
 	@echo "  make run              - Run Gazebo world + UDP bridge (all-in-one)"
 	@echo "  make run-world        - Run only Gazebo world (with GUI)"
 	@echo "  make run-world-headless - Run Gazebo world without GUI"
+	@echo "  make run-inspection   - Run CPR inspection world (with GUI)"
+	@echo "  make run-inspection-headless - Run CPR inspection world without GUI"
 	@echo "  make run-udp          - Run only UDP bridge (requires Gazebo running)"
 	@echo "  make shell            - Open interactive bash shell in container"
 	@echo "  make clean            - Remove Docker image"
@@ -96,6 +98,23 @@ run-world-headless: build
 		$(IMAGE_NAME):$(IMAGE_TAG) \
 		ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=true
 
+run-inspection: build
+	@echo "Starting CPR inspection world..."
+	@echo "  • Gazebo GUI: open http://localhost:8080/vnc.html"
+	@echo "  • World: Water table with inspection structures"
+	docker run -it --rm \
+		--name $(CONTAINER_NAME)-inspection \
+		-p 8080:8080 \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		run_with_vnc.sh ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=false
+
+run-inspection-headless: build
+	@echo "Starting CPR inspection world (headless, no GUI)..."
+	docker run -it --rm \
+		--name $(CONTAINER_NAME)-inspection \
+		$(IMAGE_NAME):$(IMAGE_TAG) \
+		ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=true
+
 run-udp: build
 	@echo "Starting UDP bridge only..."
 	@echo "  (Ensure Gazebo is already running)"
@@ -121,7 +140,7 @@ shell: build
 
 stop:
 	@echo "Stopping containers..."
-	-docker stop $(CONTAINER_NAME) $(CONTAINER_NAME)-world $(CONTAINER_NAME)-udp $(CONTAINER_NAME)-shell 2>/dev/null || true
+	-docker stop $(CONTAINER_NAME) $(CONTAINER_NAME)-world $(CONTAINER_NAME)-inspection $(CONTAINER_NAME)-udp $(CONTAINER_NAME)-shell 2>/dev/null || true
 	@echo "✓ Stopped"
 
 clean:

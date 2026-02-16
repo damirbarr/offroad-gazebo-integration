@@ -1,0 +1,33 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="inspection_world">
+    <static>true</static>
+
+    <link name="water">
+      <pose>0 0 0 0 0 0</pose>
+      <visual name="water">
+        <geometry>
+          <box>
+            <size>60 60 .1</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.0 0.3 0.5 0.8</ambient>
+          <diffuse>0.0 0.5 0.8 0.8</diffuse>
+          <specular>0.5 0.5 0.5 1.0</specular>
+          <emissive>0 0 0 0</emissive>
+        </material>
+        <transparency>0.2</transparency>
+      </visual>
+
+      <visual name="geometry">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://water_table/meshes/inspection_world.dae</uri><scale>2 2 1</scale></mesh>
+        </geometry>
+      </visual>
+
+    </link>
+
+  </model>
+</sdf>

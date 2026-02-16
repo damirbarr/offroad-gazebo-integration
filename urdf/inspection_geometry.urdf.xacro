@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<robot name="inspection_world" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <link name="inspection_world_base"/>
+
+  <joint name="inspection_world_base_joint" type="fixed">
+    <parent link="inspection_world_base"/>
+    <child link="inspection_world"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </joint>
+
+  <link name="inspection_world">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://offroad_gazebo_integration/meshes/inspection_world.dae" scale="2 2 1"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://offroad_gazebo_integration/meshes/inspection_world.dae" scale="2 2 1"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="100"/>
+      <inertia ixx="50" ixy="0" ixz="0" iyy="50" iyz="0" izz="50"/>
+    </inertial>
+  </link>
+
+  <gazebo reference="inspection_world">
+    <static>true</static>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <update_rate>1.0</update_rate>
+    </plugin>
+  </gazebo>
+
+  <static>true</static>
+
+</robot>

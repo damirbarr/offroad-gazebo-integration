@@ -49,11 +49,12 @@ RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
     cd /workspace && \
     colcon build --symlink-install"
 
-# Setup entrypoint
+# Setup entrypoint with Gazebo model paths
 RUN echo '#!/bin/bash\n\
 set -e\n\
 source /opt/ros/humble/setup.bash\n\
 source /workspace/install/setup.bash\n\
+export GZ_SIM_RESOURCE_PATH=/workspace/install/offroad_gazebo_integration/share/offroad_gazebo_integration/models:${GZ_SIM_RESOURCE_PATH}\n\
 exec "$@"' > /entrypoint.sh && \
     chmod +x /entrypoint.sh
 

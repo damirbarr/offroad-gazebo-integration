@@ -20,11 +20,11 @@ RUN apt-get update && apt-get install -y \
     websockify \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Gazebo Harmonic
+# Install Gazebo Fortress (compatible with ROS Humble)
 RUN wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null && \
     apt-get update && \
-    apt-get install -y gz-harmonic && \
+    apt-get install -y ignition-fortress && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -49,12 +49,12 @@ RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
     cd /workspace && \
     colcon build --symlink-install"
 
-# Setup entrypoint with Gazebo model paths
+# Setup entrypoint with Gazebo model paths (Fortress uses IGN prefix)
 RUN echo '#!/bin/bash\n\
 set -e\n\
 source /opt/ros/humble/setup.bash\n\
 source /workspace/install/setup.bash\n\
-export GZ_SIM_RESOURCE_PATH=/workspace/install/offroad_gazebo_integration/share/offroad_gazebo_integration/models:${GZ_SIM_RESOURCE_PATH}\n\
+export IGN_GAZEBO_RESOURCE_PATH=/workspace/install/offroad_gazebo_integration/share/offroad_gazebo_integration/models:${IGN_GAZEBO_RESOURCE_PATH}\n\
 exec "$@"' > /entrypoint.sh && \
     chmod +x /entrypoint.sh
 

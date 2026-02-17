@@ -7,8 +7,8 @@ featuring a water table and inspection geometry.
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction, OpaqueFunction
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
 from launch.conditions import LaunchConfigurationEquals
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -32,8 +32,8 @@ def generate_launch_description():
     
     vehicle_model_arg = DeclareLaunchArgument(
         'vehicle_model',
-        default_value='heron',
-        description='Vehicle model to spawn (use heron for water)'
+        default_value='inspection_robot',
+        description='Vehicle model to spawn (inspection_robot, simple_boat, or custom model)'
     )
     
     vehicle_x_arg = DeclareLaunchArgument(
@@ -50,13 +50,17 @@ def generate_launch_description():
     
     vehicle_z_arg = DeclareLaunchArgument(
         'vehicle_z',
-        default_value='0.1',
-        description='Vehicle spawn Z position (0.1 for water surface)'
+        default_value='2.0',
+        description='Vehicle spawn Z position (higher to ensure it lands on platform)'
     )
     
     # Get configuration
     headless = LaunchConfiguration('headless')
     use_sim_time = LaunchConfiguration('use_sim_time')
+    vehicle_model = LaunchConfiguration('vehicle_model')
+    vehicle_x = LaunchConfiguration('vehicle_x')
+    vehicle_y = LaunchConfiguration('vehicle_y')
+    vehicle_z = LaunchConfiguration('vehicle_z')
     
     # Package paths
     pkg_share = FindPackageShare('offroad_gazebo_integration')
@@ -68,39 +72,73 @@ def generate_launch_description():
     
     # Gazebo server (always runs)
     gazebo_server = ExecuteProcess(
-        cmd=['gz', 'sim', '-r', '-s', world_file],
+        cmd=['ign', 'gazebo', '-r', '-s', world_file],
         output='screen',
         shell=False
     )
     
     # Gazebo client (GUI - only if not headless)
     gazebo_client = ExecuteProcess(
-        cmd=['gz', 'sim', '-g'],
+        cmd=['ign', 'gazebo', '-g'],
         output='screen',
         condition=LaunchConfigurationEquals('headless', 'false'),
         shell=False
     )
     
-    # ROS-Gazebo bridge
-    bridge_node = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        arguments=[
-            # Clock
-            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-            # Vehicle command
-            '/vehicle/cmd_vel@geometry_msgs/msg/Twist[gz.msgs.Twist',
-            '/vehicle/cmd_steering@std_msgs/msg/Float64[gz.msgs.Double',
-            # Vehicle state
-            '/vehicle/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            # Sensors
-            '/vehicle/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            '/vehicle/gps@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
-            '/vehicle/lidar/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/vehicle/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
-        ],
-        output='screen',
-        parameters=[{'use_sim_time': use_sim_time}]
+    # ROS-Gazebo bridge (delayed to start after robot spawns)
+    bridge_node = TimerAction(
+        period=10.0,
+        actions=[
+            Node(
+                package='ros_gz_bridge',
+                executable='parameter_bridge',
+                arguments=[
+                    # Clock
+                    '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
+                    # Robot command (differential drive)  
+                    '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+                    # Odometry
+                    '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
+                    # GPS
+                    '/gps/fix@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
+                    # IMU
+                    '/imu/data@sensor_msgs/msg/Imu[ignition.msgs.IMU',
+                    # LiDAR - using LaserScan type
+                    '/lidar/points@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+                ],
+                output='screen',
+                parameters=[{'use_sim_time': use_sim_time}],
+                respawn=True
+            )
+        ]
+    )
+    
+    # Spawn vehicle function
+    def spawn_vehicle_func(context):
+        model = context.launch_configurations['vehicle_model']
+        x = context.launch_configurations['vehicle_x']
+        y = context.launch_configurations['vehicle_y']
+        z = context.launch_configurations['vehicle_z']
+        
+        spawn_cmd = ExecuteProcess(
+            cmd=[
+                'ign', 'service',
+                '-s', '/world/inspection_world/create',
+                '--reqtype', 'ignition.msgs.EntityFactory',
+                '--reptype', 'ignition.msgs.Boolean',
+                '--timeout', '30000',
+                '--req',
+                f'sdf_filename: "model://{model}", name: "vehicle", pose: {{position: {{x: {x}, y: {y}, z: {z}}}}}'
+            ],
+            output='screen',
+            shell=False
+        )
+        return [spawn_cmd]
+    
+    # Spawn vehicle (delayed to ensure Gazebo is ready)
+    spawn_vehicle = TimerAction(
+        period=8.0,
+        actions=[OpaqueFunction(function=spawn_vehicle_func)]
     )
     
     return LaunchDescription([
@@ -116,4 +154,5 @@ def generate_launch_description():
         gazebo_server,
         gazebo_client,
         bridge_node,
+        spawn_vehicle,
     ])

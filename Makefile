@@ -100,13 +100,24 @@ run-world-headless: build
 
 run-inspection: build
 	@echo "Starting CPR inspection world..."
-	@echo "  • Gazebo GUI: open http://localhost:8080/vnc.html"
-	@echo "  • World: Water table with inspection structures"
+	@echo "  • Gazebo GUI: open http://localhost:8080/vnc.html (click fullscreen button)"
+	@echo "  • World: Inspection platforms with obstacles"
+	@echo "  • Robot: Auto-spawns in 8 seconds at (5, 5, 2.0) with GPS, IMU, and LiDAR"
+	@echo ""
+	@echo "If robot doesn't spawn automatically, run in container:"
+	@echo "  /workspace/src/offroad_gazebo_integration/scripts/spawn_robot.sh"
+	@echo ""
+	@echo "Topics: /gps/fix, /imu/data, /lidar/points, /odom"
+	@echo "Control: ros2 topic pub /cmd_vel geometry_msgs/msg/Twist ..."
 	docker run -it --rm \
 		--name $(CONTAINER_NAME)-inspection \
 		-p 8080:8080 \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
-		run_with_vnc.sh ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=false
+		run_with_vnc.sh ros2 launch offroad_gazebo_integration inspection_world.launch.py \
+			headless:=false \
+			vehicle_x:=5.0 \
+			vehicle_y:=5.0 \
+			vehicle_z:=2.0
 
 run-inspection-headless: build
 	@echo "Starting CPR inspection world (headless, no GUI)..."

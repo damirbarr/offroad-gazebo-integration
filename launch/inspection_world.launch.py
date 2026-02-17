@@ -99,12 +99,12 @@ def generate_launch_description():
                     '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
                     # Odometry
                     '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
-                    # GPS
-                    '/gps/fix@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
-                    # IMU
+                    # IMU (for heading conversion)
                     '/imu/data@sensor_msgs/msg/Imu[ignition.msgs.IMU',
-                    # LiDAR - using LaserScan type
-                    '/lidar/points@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+                    # GPS
+                    '/mavros/global_position/global@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
+                    # LiDAR - keep as intermediate topic
+                    '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
                 ],
                 output='screen',
                 parameters=[{'use_sim_time': use_sim_time}],
@@ -141,6 +141,32 @@ def generate_launch_description():
         actions=[OpaqueFunction(function=spawn_vehicle_func)]
     )
     
+    # Sensor converter node (converts IMU to heading, GPS to velocity)
+    sensor_converter = TimerAction(
+        period=12.0,
+        actions=[
+            Node(
+                package='offroad_gazebo_integration',
+                executable='sensor_converter',
+                output='screen',
+                parameters=[{'use_sim_time': use_sim_time}]
+            )
+        ]
+    )
+    
+    # LaserScan to PointCloud2 converter
+    laserscan_converter = TimerAction(
+        period=12.0,
+        actions=[
+            Node(
+                package='offroad_gazebo_integration',
+                executable='laserscan_to_pointcloud',
+                output='screen',
+                parameters=[{'use_sim_time': use_sim_time}]
+            )
+        ]
+    )
+    
     return LaunchDescription([
         # Arguments
         headless_arg,
@@ -155,4 +181,6 @@ def generate_launch_description():
         gazebo_client,
         bridge_node,
         spawn_vehicle,
+        sensor_converter,
+        laserscan_converter,
     ])

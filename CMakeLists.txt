@@ -45,6 +45,14 @@ install(PROGRAMS src/gazebo_adapter/terrain.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME terrain
 )
+install(PROGRAMS src/gazebo_adapter/sensor_converter.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME sensor_converter
+)
+install(PROGRAMS src/gazebo_adapter/laserscan_to_pointcloud.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME laserscan_to_pointcloud
+)
 
 # Install launch files
 install(DIRECTORY

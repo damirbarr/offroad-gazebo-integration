@@ -112,7 +112,7 @@ run-inspection: build
 	@echo "Starting CPR inspection world + UDP bridge..."
 	@echo "  • Gazebo GUI: $(if $(filter false,$(USE_VNC)),disabled,open http://localhost:8080/vnc.html)"
 	@echo "  • World: Inspection platforms with obstacles"
-	@echo "  • Robot: Auto-spawns in 8 seconds at (-10, 0, 0.5) with GPS, IMU, and LiDAR"
+	@echo "  • Vehicle: Ackermann steering car at (-15, 0, 0.5) with GPS, IMU, and LiDAR"
 	@echo "  • UDP bridge: receiving on 0.0.0.0:$(AV_SIM_CMD_PORT), sending to $(AV_SIM_IP):$(AV_SIM_SENSOR_PORT)"
 	@echo ""
 	@echo "Topics: /odom, /imu/data, /lidar, /mavros/global_position/global, /cmd_vel"
@@ -128,7 +128,8 @@ run-inspection: build
 		$(if $(filter false,$(USE_VNC)),bash,run_with_vnc.sh bash) -c " \
 			echo 'Launching inspection world...' && \
 			ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=false \
-				vehicle_x:=-10.0 \
+				vehicle_model:=inspection_robot \
+				vehicle_x:=-15.0 \
 				vehicle_y:=0.0 \
 				vehicle_z:=0.5 & \
 			sleep 10 && \
@@ -155,7 +156,8 @@ run-inspection-background: build
 		$(IMAGE_NAME):$(IMAGE_TAG) \
 		$(if $(filter false,$(USE_VNC)),bash,run_with_vnc.sh bash) -c " \
 			ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=false \
-				vehicle_x:=-10.0 \
+				vehicle_model:=inspection_robot \
+				vehicle_x:=-15.0 \
 				vehicle_y:=0.0 \
 				vehicle_z:=0.5 & \
 			sleep 10 && \

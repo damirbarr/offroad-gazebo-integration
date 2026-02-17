@@ -58,7 +58,7 @@ class UdpBridge(Node):
         self.declare_parameter('av_sim_sensor_port', 9002)
         self.declare_parameter('send_rate', 50.0)
         self.declare_parameter('max_linear_speed', 10.0)
-        self.declare_parameter('max_angular_speed', 0.5)
+        self.declare_parameter('max_angular_speed', 2.0)
 
         av_sim_ip = self.get_parameter('av_sim_ip').value
         cmd_port = self.get_parameter('av_sim_command_port').value
@@ -77,7 +77,6 @@ class UdpBridge(Node):
 
         # ROS publishers
         self.cmd_vel_pub = self.create_publisher(Twist, '/vehicle/cmd_vel', 10)
-        self.cmd_steering_pub = self.create_publisher(Float64, '/vehicle/cmd_steering', 10)
 
         # ROS subscribers
         self.create_subscription(Odometry, '/vehicle/odom', self.odom_callback, 10)
@@ -132,15 +131,13 @@ class UdpBridge(Node):
         throttle = float(msg.get('throttle', 0.0))
         steering = float(msg.get('steering', 0.0))
 
-        # Map throttle → linear velocity, steering → angular velocity
+        # Map to differential drive (tank steering)
+        # throttle → forward/backward speed
+        # steering → rotation rate (left/right wheels at different speeds)
         twist = Twist()
         twist.linear.x = throttle * self.max_linear_speed
         twist.angular.z = steering * self.max_angular_speed
         self.cmd_vel_pub.publish(twist)
-
-        steering_msg = Float64()
-        steering_msg.data = steering
-        self.cmd_steering_pub.publish(steering_msg)
         
         # Log received command for debugging
         self.get_logger().info(

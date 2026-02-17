@@ -382,7 +382,7 @@
       <parent>base_link</parent>
       <child>front_left_wheel</child>
       <axis>
-        <xyz>0 1 0</xyz>
+        <xyz>0 0 1</xyz>
         <limit>
           <lower>-1e16</lower>
           <upper>1e16</upper>
@@ -394,7 +394,7 @@
       <parent>base_link</parent>
       <child>front_right_wheel</child>
       <axis>
-        <xyz>0 1 0</xyz>
+        <xyz>0 0 1</xyz>
         <limit>
           <lower>-1e16</lower>
           <upper>1e16</upper>
@@ -406,7 +406,7 @@
       <parent>base_link</parent>
       <child>rear_left_wheel</child>
       <axis>
-        <xyz>0 1 0</xyz>
+        <xyz>0 0 1</xyz>
         <limit>
           <lower>-1e16</lower>
           <upper>1e16</upper>
@@ -418,7 +418,7 @@
       <parent>base_link</parent>
       <child>rear_right_wheel</child>
       <axis>
-        <xyz>0 1 0</xyz>
+        <xyz>0 0 1</xyz>
         <limit>
           <lower>-1e16</lower>
           <upper>1e16</upper>

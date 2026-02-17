@@ -134,9 +134,10 @@ class UdpBridge(Node):
         # Map to differential drive (tank steering)
         # throttle → forward/backward speed
         # steering → rotation rate (left/right wheels at different speeds)
+        # Note: negative sign inverts steering direction to match convention
         twist = Twist()
         twist.linear.x = throttle * self.max_linear_speed
-        twist.angular.z = steering * self.max_angular_speed
+        twist.angular.z = -steering * self.max_angular_speed
         self.cmd_vel_pub.publish(twist)
         
         # Log received command for debugging

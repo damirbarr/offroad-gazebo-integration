@@ -1,7 +1,7 @@
 # Makefile for offroad-gazebo-integration
 # Quick start for Gazebo off-road simulation with av-simulation integration
 
-.PHONY: help build run run-udp run-world run-world-headless run-inspection run-inspection-headless clean stop
+.PHONY: help build run run-udp run-world run-world-headless run-inspection run-inspection-headless teleop clean stop
 
 # Docker image name
 IMAGE_NAME := offroad-gazebo-integration
@@ -9,12 +9,15 @@ IMAGE_TAG := latest
 CONTAINER_NAME := gazebo-sim
 
 # Network settings for av-simulation integration
-AV_SIM_IP ?= host.docker.internal
+AV_SIM_IP ?= 192.168.10.128 # THE AV-SIMULATION IP
 AV_SIM_CMD_PORT ?= 9001
 AV_SIM_SENSOR_PORT ?= 9002
 
-# GUI: set to true for headless (no Gazebo UI)
-HEADLESS ?= false
+# VNC: set to false to disable VNC/GUI (default: true, always has VNC)
+USE_VNC ?= true
+
+# Logging: info (default) or debug (verbose packet inspection)
+LOG_LEVEL ?= debug
 
 help:
 	@echo "╔════════════════════════════════════════════════════════════════╗"
@@ -33,10 +36,10 @@ help:
 	@echo "Commands:"
 	@echo "  make build            - Build Docker image with ROS2 Humble + Gazebo"
 	@echo "  make run              - Run Gazebo world + UDP bridge (all-in-one)"
+	@echo "  make run-inspection   - Run inspection world + UDP bridge (VNC enabled)"
+	@echo "  make run-inspection-background - Run in background"
 	@echo "  make run-world        - Run only Gazebo world (with GUI)"
-	@echo "  make run-world-headless - Run Gazebo world without GUI"
-	@echo "  make run-inspection   - Run CPR inspection world (with GUI)"
-	@echo "  make run-inspection-headless - Run CPR inspection world without GUI"
+	@echo "  make teleop           - Run keyboard teleop (requires inspection world running)"
 	@echo "  make run-udp          - Run only UDP bridge (requires Gazebo running)"
 	@echo "  make shell            - Open interactive bash shell in container"
 	@echo "  make clean            - Remove Docker image"
@@ -46,13 +49,18 @@ help:
 	@echo "  AV_SIM_IP=$(AV_SIM_IP)"
 	@echo "  AV_SIM_CMD_PORT=$(AV_SIM_CMD_PORT)"
 	@echo "  AV_SIM_SENSOR_PORT=$(AV_SIM_SENSOR_PORT)"
+	@echo "  USE_VNC=$(USE_VNC) (default: true, GUI at http://localhost:8080/vnc.html)"
+	@echo "  LOG_LEVEL=$(LOG_LEVEL) (info or debug)"
 	@echo ""
 	@echo "GUI (macOS/Linux):"
 	@echo "  make run-world              - Gazebo UI in browser at http://localhost:8080/vnc.html"
 	@echo "  make run-world HEADLESS=true - without UI"
 	@echo ""
-	@echo "Example with custom IP:"
-	@echo "  make run AV_SIM_IP=192.168.1.100"
+	@echo "Examples:"
+	@echo "  make run-inspection AV_SIM_IP=192.168.10.128"
+	@echo "  make run-inspection AV_SIM_IP=192.168.10.128 LOG_LEVEL=debug"
+	@echo "  make run-inspection USE_VNC=false  # No GUI"
+	@echo "  make run-inspection-background     # Run in background"
 	@echo ""
 
 build:
@@ -64,16 +72,18 @@ run: build
 	@echo "Starting Gazebo + UDP bridge..."
 	@echo "  • Gazebo GUI: $(if $(filter true,$(HEADLESS)),disabled,open http://localhost:8080/vnc.html)"
 	@echo "  • UDP bridge: receiving on 0.0.0.0:$(AV_SIM_CMD_PORT), sending to $(AV_SIM_IP):$(AV_SIM_SENSOR_PORT)"
-	docker run -it --rm \
+	docker run $(if $(filter true,$(HEADLESS)),-i,-it) --rm \
 		--name $(CONTAINER_NAME) \
 		-p 8080:8080 \
+		-p 9001:9001/udp \
+		-p 9002:9002/udp \
 		-e AV_SIM_IP=$(AV_SIM_IP) \
 		-e AV_SIM_CMD_PORT=$(AV_SIM_CMD_PORT) \
 		-e AV_SIM_SENSOR_PORT=$(AV_SIM_SENSOR_PORT) \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
 		$(if $(filter true,$(HEADLESS)),bash,run_with_vnc.sh bash) -c " \
 			echo 'Launching Gazebo world...' && \
-			ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=$(HEADLESS) & \
+			ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=$(HEADLESS) & \
 			sleep 5 && \
 			echo 'Launching UDP bridge...' && \
 			ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
@@ -99,32 +109,75 @@ run-world-headless: build
 		ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=true
 
 run-inspection: build
-	@echo "Starting CPR inspection world..."
-	@echo "  • Gazebo GUI: open http://localhost:8080/vnc.html (click fullscreen button)"
+	@echo "Starting CPR inspection world + UDP bridge..."
+	@echo "  • Gazebo GUI: $(if $(filter false,$(USE_VNC)),disabled,open http://localhost:8080/vnc.html)"
 	@echo "  • World: Inspection platforms with obstacles"
-	@echo "  • Robot: Auto-spawns in 8 seconds at (5, 5, 2.0) with GPS, IMU, and LiDAR"
+	@echo "  • Robot: Auto-spawns in 8 seconds at (-10, 0, 0.5) with GPS, IMU, and LiDAR"
+	@echo "  • UDP bridge: receiving on 0.0.0.0:$(AV_SIM_CMD_PORT), sending to $(AV_SIM_IP):$(AV_SIM_SENSOR_PORT)"
 	@echo ""
-	@echo "If robot doesn't spawn automatically, run in container:"
-	@echo "  /workspace/src/offroad_gazebo_integration/scripts/spawn_robot.sh"
-	@echo ""
-	@echo "Topics: /gps/fix, /imu/data, /lidar/points, /odom"
-	@echo "Control: ros2 topic pub /cmd_vel geometry_msgs/msg/Twist ..."
+	@echo "Topics: /odom, /imu/data, /lidar, /mavros/global_position/global, /cmd_vel"
 	docker run -it --rm \
 		--name $(CONTAINER_NAME)-inspection \
 		-p 8080:8080 \
+		-p 9001:9001/udp \
+		-p 9002:9002/udp \
+		-e AV_SIM_IP=$(AV_SIM_IP) \
+		-e AV_SIM_CMD_PORT=$(AV_SIM_CMD_PORT) \
+		-e AV_SIM_SENSOR_PORT=$(AV_SIM_SENSOR_PORT) \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
-		run_with_vnc.sh ros2 launch offroad_gazebo_integration inspection_world.launch.py \
-			headless:=false \
-			vehicle_x:=5.0 \
-			vehicle_y:=5.0 \
-			vehicle_z:=2.0
+		$(if $(filter false,$(USE_VNC)),bash,run_with_vnc.sh bash) -c " \
+			echo 'Launching inspection world...' && \
+			ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=false \
+				vehicle_x:=-10.0 \
+				vehicle_y:=0.0 \
+				vehicle_z:=0.5 & \
+			sleep 10 && \
+			echo 'Launching UDP bridge...' && \
+			ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
+				av_sim_ip:=$(AV_SIM_IP) \
+				av_sim_command_port:=$(AV_SIM_CMD_PORT) \
+				av_sim_sensor_port:=$(AV_SIM_SENSOR_PORT) \
+				log_level:=$(LOG_LEVEL) \
+		"
 
-run-inspection-headless: build
-	@echo "Starting CPR inspection world (headless, no GUI)..."
-	docker run -it --rm \
+run-inspection-background: build
+	@echo "Starting CPR inspection world + UDP bridge in background..."
+	@echo "  • Gazebo GUI: $(if $(filter false,$(USE_VNC)),disabled,open http://localhost:8080/vnc.html)"
+	@echo "  • UDP bridge: receiving on 0.0.0.0:$(AV_SIM_CMD_PORT), sending to $(AV_SIM_IP):$(AV_SIM_SENSOR_PORT)"
+	docker run -d --rm \
 		--name $(CONTAINER_NAME)-inspection \
+		-p 8080:8080 \
+		-p 9001:9001/udp \
+		-p 9002:9002/udp \
+		-e AV_SIM_IP=$(AV_SIM_IP) \
+		-e AV_SIM_CMD_PORT=$(AV_SIM_CMD_PORT) \
+		-e AV_SIM_SENSOR_PORT=$(AV_SIM_SENSOR_PORT) \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
-		ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=true
+		$(if $(filter false,$(USE_VNC)),bash,run_with_vnc.sh bash) -c " \
+			ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=false \
+				vehicle_x:=-10.0 \
+				vehicle_y:=0.0 \
+				vehicle_z:=0.5 & \
+			sleep 10 && \
+			ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
+				av_sim_ip:=$(AV_SIM_IP) \
+				av_sim_command_port:=$(AV_SIM_CMD_PORT) \
+				av_sim_sensor_port:=$(AV_SIM_SENSOR_PORT) \
+				log_level:=$(LOG_LEVEL) \
+		"
+	@echo "Container started in background. Use 'docker logs -f $(CONTAINER_NAME)-inspection' to view logs"
+
+teleop: build
+	@echo "Starting keyboard teleoperation..."
+	@echo "  Ensure inspection world is running with 'make run-inspection'"
+	@echo ""
+	@echo "Controls:"
+	@echo "  W/S - Forward/Backward"
+	@echo "  A/D - Turn Left/Right"
+	@echo "  Space - Stop"
+	@echo "  Q/E - Increase/Decrease speed"
+	@echo "  X - Quit"
+	docker exec -it $(CONTAINER_NAME)-inspection bash -c "source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && ros2 run offroad_gazebo_integration teleop_keyboard"
 
 run-udp: build
 	@echo "Starting UDP bridge only..."

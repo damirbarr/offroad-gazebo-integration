@@ -73,38 +73,38 @@ def generate_launch_description():
         [world_name, '.sdf']
     ])
     
-    # Gazebo server (always runs)
+    # Gazebo server (always runs) - using 'ign' for Ignition Fortress
     gazebo_server = ExecuteProcess(
-        cmd=['gz', 'sim', '-r', '-s', world_file],
+        cmd=['ign', 'gazebo', '-r', '-s', world_file],
         output='screen',
         shell=False
     )
     
     # Gazebo client (GUI - only if not headless)
     gazebo_client = ExecuteProcess(
-        cmd=['gz', 'sim', '-g'],
+        cmd=['ign', 'gazebo', '-g'],
         output='screen',
         condition=LaunchConfigurationEquals('headless', 'false'),
         shell=False
     )
     
-    # ROS-Gazebo bridge
+    # ROS-Gazebo bridge (using ignition.msgs for Fortress)
     bridge_node = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
             # Clock
-            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+            '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
             # Vehicle command
-            '/vehicle/cmd_vel@geometry_msgs/msg/Twist[gz.msgs.Twist',
-            '/vehicle/cmd_steering@std_msgs/msg/Float64[gz.msgs.Double',
+            '/vehicle/cmd_vel@geometry_msgs/msg/Twist[ignition.msgs.Twist',
+            '/vehicle/cmd_steering@std_msgs/msg/Float64[ignition.msgs.Double',
             # Vehicle state
-            '/vehicle/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/vehicle/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
             # Sensors
-            '/vehicle/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
-            '/vehicle/gps@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
-            '/vehicle/lidar/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/vehicle/camera/image_raw@sensor_msgs/msg/Image[gz.msgs.Image',
+            '/vehicle/imu@sensor_msgs/msg/Imu[ignition.msgs.IMU',
+            '/vehicle/gps@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
+            '/vehicle/lidar/points@sensor_msgs/msg/PointCloud2[ignition.msgs.PointCloudPacked',
+            '/vehicle/camera/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
         ],
         output='screen',
         parameters=[{'use_sim_time': use_sim_time}]

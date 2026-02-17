@@ -106,7 +106,11 @@ class UdpBridge(Node):
     def _receive_loop(self):
         while self.running and rclpy.ok():
             try:
-                data, _ = self.command_socket.recvfrom(4096)
+                data, addr = self.command_socket.recvfrom(4096)
+                # Log ALL incoming packets (debug level)
+                self.get_logger().debug(
+                    f'UDP RX from {addr[0]}:{addr[1]} - {len(data)} bytes: {data[:100]}'
+                )
                 self._process_command(data)
             except socket.timeout:
                 continue
@@ -116,11 +120,13 @@ class UdpBridge(Node):
     def _process_command(self, data: bytes):
         try:
             msg = json.loads(data.decode('utf-8'))
+            self.get_logger().debug(f'JSON parsed OK: type={msg.get("type")}')
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            self.get_logger().warn(f'Invalid JSON command: {e}')
+            self.get_logger().warn(f'Invalid JSON command: {e} - raw data: {data}')
             return
 
         if msg.get('type') != 'control':
+            self.get_logger().debug(f'Ignored non-control message: type={msg.get("type")}')
             return
 
         throttle = float(msg.get('throttle', 0.0))
@@ -135,6 +141,12 @@ class UdpBridge(Node):
         steering_msg = Float64()
         steering_msg.data = steering
         self.cmd_steering_pub.publish(steering_msg)
+        
+        # Log received command for debugging
+        self.get_logger().info(
+            f'UDP CMD: throttle={throttle:.3f}, steering={steering:.3f} '
+            f'→ vel={twist.linear.x:.3f} m/s, ang={twist.angular.z:.3f} rad/s'
+        )
 
     # ── Send ─────────────────────────────────────────────────
 
@@ -171,6 +183,16 @@ class UdpBridge(Node):
         try:
             payload = json.dumps(feedback).encode('utf-8')
             self.sensor_socket.sendto(payload, self.av_sim_address)
+            # Log feedback occasionally (every 2 seconds at 50Hz = every 100 messages)
+            if not hasattr(self, '_feedback_counter'):
+                self._feedback_counter = 0
+            self._feedback_counter += 1
+            if self._feedback_counter % 100 == 0:
+                self.get_logger().info(
+                    f'UDP FEEDBACK: speed={feedback["speed"]:.3f} m/s, '
+                    f'rpm={feedback["rpm"]}, gps=({feedback["gps"]["latitude"]:.6f}, '
+                    f'{feedback["gps"]["longitude"]:.6f})'
+                )
         except Exception as e:
             self.get_logger().error(f'Sensor send error: {e}')
 

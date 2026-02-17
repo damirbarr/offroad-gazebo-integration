@@ -35,12 +35,19 @@ def generate_launch_description():
         description='Sensor data send rate in Hz'
     )
     
+    log_level_arg = DeclareLaunchArgument(
+        'log_level',
+        default_value='info',
+        description='Log level: debug, info, warn, error'
+    )
+    
     # UDP Bridge Node
     udp_bridge_node = Node(
         package='offroad_gazebo_integration',
         executable='udp_bridge',
         name='udp_bridge',
         output='screen',
+        arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
         parameters=[{
             'av_sim_ip': LaunchConfiguration('av_sim_ip'),
             'av_sim_command_port': LaunchConfiguration('av_sim_command_port'),
@@ -48,12 +55,12 @@ def generate_launch_description():
             'send_rate': LaunchConfiguration('send_rate'),
         }],
         remappings=[
-            # Map to your actual Gazebo topics if different
-            ('/vehicle/cmd_vel', '/vehicle/cmd_vel'),
-            ('/vehicle/cmd_steering', '/vehicle/cmd_steering'),
-            ('/vehicle/odom', '/vehicle/odom'),
-            ('/vehicle/imu', '/vehicle/imu'),
-            ('/vehicle/gps', '/vehicle/gps'),
+            # Map to actual topics from inspection world
+            ('/vehicle/cmd_vel', '/cmd_vel'),
+            ('/vehicle/cmd_steering', '/cmd_steering'),
+            ('/vehicle/odom', '/odom'),
+            ('/vehicle/imu', '/imu/data'),
+            ('/vehicle/gps', '/mavros/global_position/global'),
         ]
     )
     
@@ -62,5 +69,6 @@ def generate_launch_description():
         av_sim_command_port_arg,
         av_sim_sensor_port_arg,
         send_rate_arg,
+        log_level_arg,
         udp_bridge_node,
     ])

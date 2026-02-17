@@ -53,6 +53,10 @@ install(PROGRAMS src/gazebo_adapter/laserscan_to_pointcloud.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME laserscan_to_pointcloud
 )
+install(PROGRAMS src/gazebo_adapter/teleop_keyboard.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME teleop_keyboard
+)
 
 # Install launch files
 install(DIRECTORY

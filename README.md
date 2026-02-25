@@ -145,8 +145,11 @@ make run
 - `make run` - Run inspection world + UDP bridge (recommended)
 - `make run-inspection` - Same as `make run` (alias)
 - `make run-world` - Run offroad world (desert_terrain) + UDP bridge (same topics as inspection)
-- `make clean` - Remove Docker image
+- `make rviz` - Launch RViz2 with LiDAR visualization config
+- `make rviz-config` - Show path to RViz2 config file
+- `make foxglove` - Show web visualization options
 - `make stop` - Stop running container
+- `make clean` - Remove Docker image
 
 **See [QUICKSTART.md](QUICKSTART.md) for complete Docker workflow.**
 
@@ -219,15 +222,128 @@ Pre-configured worlds in `worlds/`:
 ### ROS Topics
 
 **Published by simulator:**
-- `/vehicle/odom` (nav_msgs/Odometry) - Vehicle odometry
-- `/vehicle/imu` (sensor_msgs/Imu) - IMU data
-- `/vehicle/gps` (sensor_msgs/NavSatFix) - GPS position
-- `/vehicle/lidar/points` (sensor_msgs/PointCloud2) - LIDAR
-- `/vehicle/camera/image_raw` (sensor_msgs/Image) - Camera
+- `/odom` (nav_msgs/Odometry) - Vehicle odometry
+- `/imu/data` (sensor_msgs/Imu) - IMU data
+- `/mavros/global_position/global` (sensor_msgs/NavSatFix) - GPS position
+- `/velodyne_points` (sensor_msgs/PointCloud2) - LiDAR point cloud ⭐
+- `/lidar` (sensor_msgs/LaserScan) - LiDAR raw scan (before conversion)
 
 **Subscribed by simulator:**
-- `/vehicle/cmd_vel` (geometry_msgs/Twist) - Velocity commands
-- `/vehicle/cmd_steering` (std_msgs/Float64) - Steering angle
+- `/cmd_vel` (geometry_msgs/Twist) - Velocity commands
+
+> **Note:** The LiDAR data flows from Gazebo (`/lidar` as LaserScan) → conversion node → `/velodyne_points` as PointCloud2 for RViz2 compatibility.
+
+---
+
+## 🔍 LiDAR Visualization with RViz2
+
+Visualize the Velodyne LiDAR point cloud in real-time using RViz2.
+
+### Quick Start (RViz2)
+
+```bash
+# Terminal 1: Start the Gazebo simulation
+make run
+
+# Terminal 2: Launch RViz2 with LiDAR config
+make rviz
+```
+
+Or using ROS2 launch directly:
+
+```bash
+# Launch RViz2 with LiDAR visualization
+ros2 launch offroad_gazebo_integration rviz_lidar.launch.py
+```
+
+### Available Make Targets
+
+- `make rviz` - Launch RViz2 with the LiDAR visualization config
+- `make rviz-config` - Show path to the RViz2 config file
+- `make foxglove` - Show instructions for Foxglove Studio web viewer
+
+### LiDAR Configuration
+
+| Property | Value |
+|----------|-------|
+| **Topic** | `/velodyne_points` |
+| **Message Type** | `sensor_msgs/PointCloud2` |
+| **Frame ID** | `velodyne` |
+| **Update Rate** | 10 Hz |
+| **Range** | 0.1 - 30.0 meters |
+| **Horizontal FOV** | 360° (-π to +π) |
+| **Vertical Samples** | 16 |
+
+### RViz2 Config File
+
+The RViz2 configuration is saved at:
+```
+config/rviz/lidar_view.rviz
+```
+
+This config includes:
+- **Grid** - Reference ground plane
+- **TF** - Coordinate frames (odom, base_link, velodyne)
+- **Velodyne LiDAR** - Point cloud visualization with intensity coloring
+- **Robot Model** - Vehicle visualization
+
+### Web-based Visualization (Optional)
+
+For browser-based visualization without RViz2:
+
+#### Option 1: Foxglove Studio (Recommended)
+```bash
+# 1. Install foxglove_bridge
+sudo apt install ros-humble-foxglove-bridge
+
+# 2. Launch the bridge
+ros2 launch foxglove_bridge foxglove_bridge_launch.xml
+
+# 3. Open Foxglove Studio
+#    - Download: https://foxglove.dev/download
+#    - Or use web: https://app.foxglove.dev
+#    - Connect to: ws://localhost:8765
+```
+
+#### Option 2: Webviz
+```bash
+# Run Webviz in Docker
+docker run -p 8080:8080 cruise/webviz
+
+# Launch rosbridge
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+
+# Open browser to http://localhost:8080
+```
+
+#### Option 3: RVizWeb
+```bash
+# Install
+sudo apt install ros-humble-rvizweb
+
+# Launch
+ros2 launch rvizweb rvizweb.launch.xml
+
+# Open browser to http://localhost:8000/rvizweb/www/index.html
+```
+
+### Troubleshooting RViz2
+
+**Issue:** No point cloud visible  
+**Solution:** 
+- Ensure `make run` is active in another terminal
+- Check topic is publishing: `ros2 topic hz /velodyne_points`
+- Verify frame exists: `ros2 tf2_echo odom velodyne`
+
+**Issue:** RViz2 crashes on startup  
+**Solution:**
+- Source ROS2: `source /opt/ros/humble/setup.bash`
+- Check RViz2 is installed: `sudo apt install ros-humble-rviz2`
+
+**Issue:** Points appear in wrong location  
+**Solution:**
+- Verify TF tree: `ros2 run tf2_tools view_frames.py`
+- Check `velodyne` frame is child of `base_link`
 
 ### Parameters
 

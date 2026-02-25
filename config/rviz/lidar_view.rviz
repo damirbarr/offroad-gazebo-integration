@@ -1,5 +1,10 @@
 Visualization Manager:
   Class: ""
+  Global Options:
+    Background Color: 48; 48; 48
+    Default Light: true
+    Fixed Frame: odom
+    Frame Rate: 30
   Displays:
     - Class: rviz_default_plugins/Grid
       Enabled: true

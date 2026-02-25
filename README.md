@@ -142,12 +142,11 @@ make run
 **Available Make targets:**
 - `make help` - Show all commands
 - `make build` - Build Docker image
-- `make run` - Run Gazebo + UDP bridge
-- `make run-world` - Run only Gazebo world
-- `make run-udp` - Run only UDP bridge
-- `make shell` - Open interactive shell
+- `make run` - Run inspection world + UDP bridge (recommended)
+- `make run-inspection` - Same as `make run` (alias)
+- `make run-world` - Run offroad world (desert_terrain) + UDP bridge (same topics as inspection)
 - `make clean` - Remove Docker image
-- `make stop` - Stop running containers
+- `make stop` - Stop running container
 
 **See [QUICKSTART.md](QUICKSTART.md) for complete Docker workflow.**
 
@@ -197,23 +196,14 @@ source install/setup.bash
 ### Basic Simulation
 
 ```bash
-# Terminal 1: Launch Gazebo with off-road world
-ros2 launch offroad_gazebo_integration offroad_world.launch.py
+# Terminal 1: Launch Gazebo inspection world + UDP bridge (or use: make run)
+ros2 launch offroad_gazebo_integration inspection_world.launch.py
 
-# Terminal 2: Launch av-simulation with gazebo adapter
-ros2 launch av_simulation simulation.launch.py adapter:=gazebo
+# Terminal 2: Launch av-simulation with UDP gazebo adapter
+ros2 launch av_simulation simulation.launch.py adapter:=udp_gazebo
 
 # Terminal 3: Run your autonomy stack
 ros2 launch your_autonomy your_stack.launch.py
-```
-
-### Custom Terrain
-
-```bash
-# Launch with custom heightmap
-ros2 launch offroad_gazebo_integration offroad_world.launch.py \
-    terrain_heightmap:=/path/to/your/heightmap.png \
-    terrain_size:="100 100 20"
 ```
 
 ## Configuration
@@ -291,8 +281,8 @@ offroad-gazebo-integration/
 │   ├── simulation.yaml        # Simulation parameters
 │   └── ros_bridge.yaml         # ROS-Gazebo bridge config
 ├── launch/
-│   ├── offroad_world.launch.py
-│   └── gazebo_adapter.launch.py
+│   ├── inspection_world.launch.py   # Inspection world + vehicle (used by make run)
+│   └── udp_bridge.launch.py         # UDP bridge for av-simulation
 ├── models/
 │   ├── offroad_vehicle/        # Vehicle model (SDF)
 │   └── sensors/                # Sensor models

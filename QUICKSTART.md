@@ -63,20 +63,8 @@ make run
 ```
 
 This starts:
-1. Gazebo world with off-road terrain
+1. Inspection world (Gazebo) with vehicle and sensors
 2. UDP bridge for av-simulation communication
-
-**Option B: Separate terminals**
-
-Terminal 1 - Gazebo world:
-```bash
-make run-world
-```
-
-Terminal 2 - UDP bridge:
-```bash
-make run-udp
-```
 
 ## Step 5: Run av-simulation
 
@@ -132,13 +120,12 @@ docker logs gazebo-sim
 
 **Verify Gazebo topics are publishing:**
 ```bash
-# Open shell in container
-make shell
-
-# Check topics
-ros2 topic list
-ros2 topic echo /vehicle/odom
+# Run a container and check topics (exit when done)
+docker run --rm -it --entrypoint bash offroad-gazebo-integration:latest -c "\
+  source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && \
+  ros2 topic list && ros2 topic echo /odom"
 ```
+Or with the simulation running, use `docker exec -it gazebo-sim bash` then source and run `ros2 topic list`.
 
 ### Vehicle not moving
 
@@ -147,10 +134,7 @@ ros2 topic echo /vehicle/odom
    - Is physics running?
 
 2. **Check ROS commands:**
-   ```bash
-   make shell
-   ros2 topic echo /vehicle/cmd_vel
-   ```
+   With the simulation running: `docker exec -it gazebo-sim bash`, then `source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && ros2 topic echo /cmd_vel`
    Should show velocity commands when av-simulation sends throttle.
 
 3. **Check UDP bridge:**
@@ -206,7 +190,7 @@ Edit `worlds/desert_terrain.sdf` or create new world files.
 **Running headless (no GUI):**
 ```bash
 # Add headless:=true to launch
-docker run ... ros2 launch offroad_gazebo_integration offroad_world.launch.py headless:=true
+make run USE_VNC=false
 ```
 
 **Reduce sensor rate:**
@@ -274,9 +258,7 @@ docker logs -f gazebo-sim
 ```
 
 **Interactive debugging:**
-```bash
-make shell             # Open bash in container
-```
+With simulation running: `docker exec -it gazebo-sim bash`. Or run a one-off container: `docker run --rm -it --entrypoint bash offroad-gazebo-integration:latest`.
 
 ---
 

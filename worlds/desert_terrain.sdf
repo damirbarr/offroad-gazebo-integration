@@ -9,25 +9,33 @@
       <real_time_update_rate>1000.0</real_time_update_rate>
     </physics>
     
-    <!-- Required plugins -->
+    <!-- Required plugins (Fortress naming for ignition-fortress in Docker) -->
     <plugin
-      filename="gz-sim-physics-system"
-      name="gz::sim::systems::Physics">
+      filename="ignition-gazebo-physics-system"
+      name="ignition::gazebo::systems::Physics">
     </plugin>
     <plugin
-      filename="gz-sim-sensors-system"
-      name="gz::sim::systems::Sensors">
+      filename="ignition-gazebo-sensors-system"
+      name="ignition::gazebo::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
     <plugin
-      filename="gz-sim-scene-broadcaster-system"
-      name="gz::sim::systems::SceneBroadcaster">
+      filename="ignition-gazebo-scene-broadcaster-system"
+      name="ignition::gazebo::systems::SceneBroadcaster">
     </plugin>
     <plugin
-      filename="gz-sim-user-commands-system"
-      name="gz::sim::systems::UserCommands">
+      filename="ignition-gazebo-user-commands-system"
+      name="ignition::gazebo::systems::UserCommands">
     </plugin>
-    
+    <plugin
+      filename="ignition-gazebo-imu-system"
+      name="ignition::gazebo::systems::Imu">
+    </plugin>
+    <plugin
+      filename="ignition-gazebo-navsat-system"
+      name="ignition::gazebo::systems::NavSat">
+    </plugin>
+
     <!-- Sun -->
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>

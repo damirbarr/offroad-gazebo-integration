@@ -116,10 +116,10 @@ heartbeat_timeout_ms = 5000
 ### offroad-gazebo-integration
 
 ```bash
-# Terminal 1: Gazebo world
-ros2 launch offroad_gazebo_integration offroad_world.launch.py
+# Terminal 1: Inspection world (or use: make run for world + bridge together)
+ros2 launch offroad_gazebo_integration inspection_world.launch.py
 
-# Terminal 2: UDP bridge
+# Terminal 2: UDP bridge (only if not using make run)
 ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
   av_sim_ip:=127.0.0.1 \
   av_sim_command_port:=9001 \

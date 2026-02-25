@@ -129,7 +129,7 @@ class UdpBridge(Node):
             return
 
         throttle = float(msg.get('throttle', 0.0))
-        steering = float(msg.get('steering', 0.0))
+        steering = float(msg.get('steering', 0.0))*2
 
         # Map to differential drive (tank steering)
         # throttle → forward/backward speed

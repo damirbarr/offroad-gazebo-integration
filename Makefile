@@ -1,7 +1,7 @@
 # Makefile for offroad-gazebo-integration
 # Quick start for Gazebo off-road simulation with av-simulation integration
 
-.PHONY: help build run run-inspection run-world rviz rviz-config stop clean check-avsim foxglove
+.PHONY: help build run run-inspection run-world rviz rviz-config stop clean check-avsim
 
 # Docker image name
 IMAGE_NAME := offroad-gazebo-integration
@@ -41,7 +41,6 @@ help:
 	@echo "  make run-world        - Run offroad world (desert_terrain) + UDP bridge"
 	@echo "  make rviz             - Launch RViz2 with LiDAR config (requires 'make run' first)"
 	@echo "  make rviz-config      - Show path to RViz2 config file"
-	@echo "  make foxglove         - Launch Foxglove Studio web viewer (alternative to RViz2)"
 	@echo "  make stop             - Stop running container"
 	@echo "  make clean            - Remove Docker image"
 	@echo ""
@@ -179,33 +178,6 @@ rviz:
 	echo "Using container: $$CONTAINER_NAME_TO_USE"; \
 	echo "Starting RViz2 inside Docker - view at http://localhost:8080/vnc.html"; \
 	docker exec -it $$CONTAINER_NAME_TO_USE bash -lc "source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && export DISPLAY=:99; layout_rviz_gazebo.sh & ros2 run rviz2 rviz2 -d $(RVIZ_CONFIG_CONTAINER)"
-
-# Foxglove Studio web-based visualization (alternative to RViz2)
-foxglove:
-	@echo "╔════════════════════════════════════════════════════════════════╗"
-	@echo "║  Foxglove Studio - Web-based visualization                     ║"
-	@echo "╚════════════════════════════════════════════════════════════════╝"
-	@echo ""
-	@echo "Options for web-based visualization:"
-	@echo ""
-	@echo "1. Foxglove Studio (recommended):"
-	@echo "   • Install: https://foxglove.dev/download"
-	@echo "   • Or use web app: https://app.foxglove.dev"
-	@echo "   • Install foxglove_bridge: sudo apt install ros-humble-foxglove-bridge"
-	@echo "   • Launch: ros2 launch foxglove_bridge foxglove_bridge_launch.xml"
-	@echo "   • Connect to: ws://localhost:8765"
-	@echo ""
-	@echo "2. Webviz (browser-based):"
-	@echo "   • Docker: docker run -p 8080:8080 cruise/webviz"
-	@echo "   • Open: http://localhost:8080"
-	@echo "   • Requires rosbridge_server: ros2 launch rosbridge_server rosbridge_websocket_launch.xml"
-	@echo ""
-	@echo "3. RVizWeb (web-based RViz):"
-	@echo "   • Install: sudo apt install ros-humble-rvizweb"
-	@echo "   • Launch: ros2 launch rvizweb rvizweb.launch.xml"
-	@echo "   • Open: http://localhost:8000/rvizweb/www/index.html"
-	@echo ""
-	@echo "LiDAR Topic: /velodyne_points (sensor_msgs/PointCloud2)"
 
 # Check if av-simulation is reachable
 check-avsim:

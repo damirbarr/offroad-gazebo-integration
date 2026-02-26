@@ -147,7 +147,6 @@ make run
 - `make run-world` - Run offroad world (desert_terrain) + UDP bridge (same topics as inspection)
 - `make rviz` - Launch RViz2 with LiDAR visualization config
 - `make rviz-config` - Show path to RViz2 config file
-- `make foxglove` - Show web visualization options
 - `make stop` - Stop running container
 - `make clean` - Remove Docker image
 
@@ -289,43 +288,7 @@ This config includes:
 
 ### Web-based Visualization (Optional)
 
-For browser-based visualization without RViz2:
-
-#### Option 1: Foxglove Studio (Recommended)
-```bash
-# 1. Install foxglove_bridge
-sudo apt install ros-humble-foxglove-bridge
-
-# 2. Launch the bridge
-ros2 launch foxglove_bridge foxglove_bridge_launch.xml
-
-# 3. Open Foxglove Studio
-#    - Download: https://foxglove.dev/download
-#    - Or use web: https://app.foxglove.dev
-#    - Connect to: ws://localhost:8765
-```
-
-#### Option 2: Webviz
-```bash
-# Run Webviz in Docker
-docker run -p 8080:8080 cruise/webviz
-
-# Launch rosbridge
-ros2 launch rosbridge_server rosbridge_websocket_launch.xml
-
-# Open browser to http://localhost:8080
-```
-
-#### Option 3: RVizWeb
-```bash
-# Install
-sudo apt install ros-humble-rvizweb
-
-# Launch
-ros2 launch rvizweb rvizweb.launch.xml
-
-# Open browser to http://localhost:8000/rvizweb/www/index.html
-```
+If you need browser-based visualization instead of RViz2, you can integrate tools like Foxglove, Webviz, or RVizWeb separately using their standard ROS2 bridges. This repository focuses on the Dockerized Gazebo + RViz2 workflow and does not ship dedicated make targets for those tools.
 
 ### Troubleshooting RViz2
 

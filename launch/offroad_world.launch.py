@@ -113,6 +113,7 @@ def generate_launch_description():
                     '/imu/data@sensor_msgs/msg/Imu[ignition.msgs.IMU',
                     '/mavros/global_position/global@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
                     '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+                    '/lidar/points@sensor_msgs/msg/PointCloud2[ignition.msgs.PointCloudPacked',
                 ],
                 output='screen',
                 parameters=[{'use_sim_time': use_sim_time}],

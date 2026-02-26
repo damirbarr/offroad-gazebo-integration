@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y \
     x11vnc \
     novnc \
     websockify \
+    openbox \
+    wmctrl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Gazebo Fortress (compatible with ROS Humble)
@@ -42,9 +44,10 @@ RUN mkdir -p /workspace/src
 # Copy package
 COPY . /workspace/src/offroad_gazebo_integration/
 
-# Copy VNC startup script
+# Copy VNC startup and layout scripts
 COPY scripts/run_with_vnc.sh /usr/local/bin/run_with_vnc.sh
-RUN chmod +x /usr/local/bin/run_with_vnc.sh
+COPY scripts/layout_rviz_gazebo.sh /usr/local/bin/layout_rviz_gazebo.sh
+RUN chmod +x /usr/local/bin/run_with_vnc.sh /usr/local/bin/layout_rviz_gazebo.sh
 
 # Build workspace
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \

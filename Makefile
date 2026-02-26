@@ -178,7 +178,7 @@ rviz:
 	fi; \
 	echo "Using container: $$CONTAINER_NAME_TO_USE"; \
 	echo "Starting RViz2 inside Docker - view at http://localhost:8080/vnc.html"; \
-	docker exec -it $$CONTAINER_NAME_TO_USE bash -lc "source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && export DISPLAY=:99; ros2 run rviz2 rviz2 -d $(RVIZ_CONFIG_CONTAINER)"
+	docker exec -it $$CONTAINER_NAME_TO_USE bash -lc "source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && export DISPLAY=:99; layout_rviz_gazebo.sh & ros2 run rviz2 rviz2 -d $(RVIZ_CONFIG_CONTAINER)"
 
 # Foxglove Studio web-based visualization (alternative to RViz2)
 foxglove:

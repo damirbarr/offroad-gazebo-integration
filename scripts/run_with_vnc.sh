@@ -14,6 +14,10 @@ sleep 3
 x11vnc -display :99 -rfbport $VNC_PORT -forever -shared -nonap -bg
 sleep 1
 
+# Start lightweight window manager for better window placement
+openbox &> /tmp/openbox.log &
+sleep 1
+
 # Start noVNC (websockify proxies VNC to browser)
 websockify -v --web=/usr/share/novnc $NOVNC_PORT localhost:$VNC_PORT &
 sleep 1

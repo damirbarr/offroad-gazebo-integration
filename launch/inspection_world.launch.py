@@ -103,8 +103,10 @@ def generate_launch_description():
                     '/imu/data@sensor_msgs/msg/Imu[ignition.msgs.IMU',
                     # GPS
                     '/mavros/global_position/global@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
-                    # LiDAR - keep as intermediate topic
+                    # LiDAR 2D scan (for legacy uses)
                     '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+                    # LiDAR 3D point cloud (gpu_lidar -> PointCloud2)
+                    '/lidar/points@sensor_msgs/msg/PointCloud2[ignition.msgs.PointCloudPacked',
                 ],
                 output='screen',
                 parameters=[{'use_sim_time': use_sim_time}],

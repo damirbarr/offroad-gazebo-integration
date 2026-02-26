@@ -144,6 +144,7 @@ clean:
 
 # RViz2 visualization targets
 RVIZ_CONFIG := $(CURDIR)/config/rviz/lidar_view.rviz
+RVIZ_CONFIG_CONTAINER := /workspace/src/offroad_gazebo_integration/config/rviz/lidar_view.rviz
 
 rviz-config:
 	@echo "RViz2 config file location:"
@@ -158,8 +159,9 @@ rviz:
 	@echo "╚════════════════════════════════════════════════════════════════╝"
 	@echo ""
 	@echo "Prerequisites:"
-	@echo "  • 'make run' must be running in another terminal"
-	@echo "  • ROS2 Humble must be sourced"
+	@echo "  • 'make run' or 'make run-world' must be running in another terminal"
+	@echo "  • USE_VNC=true (default) to view GUI via http://localhost:8080/vnc.html"
+	@echo "  • No local ROS2 installation required (RViz2 runs inside Docker)"
 	@echo ""
 	@echo "LiDAR Topic: /velodyne_points (PointCloud2)"
 	@echo "Config: $(RVIZ_CONFIG)"
@@ -168,8 +170,15 @@ rviz:
 		echo "✗ Error: RViz config file not found at $(RVIZ_CONFIG)"; \
 		exit 1; \
 	fi
-	@echo "Starting RViz2..."
-	ros2 run rviz2 rviz2 -d $(RVIZ_CONFIG)
+	@CONTAINER_NAME_TO_USE=$$(docker ps --format '{{.Names}}' | grep -E '^$(CONTAINER_NAME)$$|^$(CONTAINER_NAME)-world$$' | head -n 1); \
+	if [ -z "$$CONTAINER_NAME_TO_USE" ]; then \
+		echo "✗ Error: no running Gazebo container found."; \
+		echo "  Start one with 'make run' or 'make run-world' in another terminal."; \
+		exit 1; \
+	fi; \
+	echo "Using container: $$CONTAINER_NAME_TO_USE"; \
+	echo "Starting RViz2 inside Docker - view at http://localhost:8080/vnc.html"; \
+	docker exec -it $$CONTAINER_NAME_TO_USE bash -lc "source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && export DISPLAY=:99; ros2 run rviz2 rviz2 -d $(RVIZ_CONFIG_CONTAINER)"
 
 # Foxglove Studio web-based visualization (alternative to RViz2)
 foxglove:

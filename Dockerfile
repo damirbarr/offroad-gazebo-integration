@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
     ros-humble-ros-gz-bridge \
     ros-humble-ros-gz-sim \
+    ros-humble-rviz2 \
+    ros-humble-rviz-default-plugins \
     xvfb \
     x11vnc \
     novnc \

@@ -9,6 +9,8 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, PointCloud2, PointField
 from std_msgs.msg import Header
+from geometry_msgs.msg import TransformStamped
+from tf2_ros import StaticTransformBroadcaster
 import numpy as np
 import struct
 
@@ -16,7 +18,22 @@ import struct
 class LaserScanToPointCloud(Node):
     def __init__(self):
         super().__init__('laserscan_to_pointcloud')
-        
+
+        # Static transform for RViz: define velodyne frame at origin of odom
+        self.static_broadcaster = StaticTransformBroadcaster(self)
+        static_tf = TransformStamped()
+        static_tf.header.stamp = self.get_clock().now().to_msg()
+        static_tf.header.frame_id = 'odom'
+        static_tf.child_frame_id = 'velodyne'
+        static_tf.transform.translation.x = 0.0
+        static_tf.transform.translation.y = 0.0
+        static_tf.transform.translation.z = 0.0
+        static_tf.transform.rotation.x = 0.0
+        static_tf.transform.rotation.y = 0.0
+        static_tf.transform.rotation.z = 0.0
+        static_tf.transform.rotation.w = 1.0
+        self.static_broadcaster.sendTransform(static_tf)
+
         # Subscriber
         self.scan_sub = self.create_subscription(
             LaserScan,

@@ -21,7 +21,14 @@ class TestPriusModel(unittest.TestCase):
         'rear_left_wheel',
         'rear_right_wheel',
     )
+    WHEEL_JOINT_NAMES = (
+        'front_left_wheel_joint',
+        'front_right_wheel_joint',
+        'rear_left_wheel_joint',
+        'rear_right_wheel_joint',
+    )
     EXPECTED_VISUAL_POSE = '0 0 0 0 -1.5708 0'
+    EXPECTED_WHEEL_JOINT_AXIS = '0 0 1'
 
     @classmethod
     def setUpClass(cls):
@@ -41,6 +48,12 @@ class TestPriusModel(unittest.TestCase):
         self.assertIsNotNone(plugin)
         self.assertEqual(plugin.findtext('drive_topic'), '/cmd_drive')
         self.assertEqual(plugin.findtext('gear_topic'), '/cmd_gear')
+
+    def test_wheel_joints_spin_about_the_link_z_axis(self):
+        for joint_name in self.WHEEL_JOINT_NAMES:
+            with self.subTest(joint_name=joint_name):
+                axis = self.root.findtext(f".//joint[@name='{joint_name}']/axis/xyz")
+                self.assertEqual(axis, self.EXPECTED_WHEEL_JOINT_AXIS)
 
     def test_odometry_publisher_uses_existing_odom_topic(self):
         topic = self.root.findtext(

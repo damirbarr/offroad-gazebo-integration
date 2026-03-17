@@ -7,11 +7,17 @@ sensor_converter, and laserscan_to_pointcloud so the UDP stack works unchanged.
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction, OpaqueFunction
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    OpaqueFunction,
+    SetEnvironmentVariable,
+    TimerAction,
+)
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import LaunchConfigurationEquals
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
+from launch_ros.substitutions import FindPackagePrefix, FindPackageShare
 
 
 def generate_launch_description():
@@ -45,7 +51,7 @@ def generate_launch_description():
     vehicle_model_arg = DeclareLaunchArgument(
         'vehicle_model',
         default_value='inspection_robot',
-        description='Vehicle model to spawn (e.g. inspection_robot, offroad_4x4)'
+        description='Vehicle model to spawn (e.g. inspection_robot, prius_vehicle, offroad_4x4)'
     )
 
     vehicle_x_arg = DeclareLaunchArgument(
@@ -78,11 +84,25 @@ def generate_launch_description():
 
     # Package paths
     pkg_share = FindPackageShare('offroad_gazebo_integration')
+    plugin_path = PathJoinSubstitution([
+        FindPackagePrefix('offroad_gazebo_integration'),
+        'lib',
+    ])
     world_path = PathJoinSubstitution([
         pkg_share,
         'worlds',
         world_file_name,
     ])
+
+    ignition_plugin_path = SetEnvironmentVariable(
+        'IGN_GAZEBO_SYSTEM_PLUGIN_PATH',
+        [plugin_path, ':', EnvironmentVariable('IGN_GAZEBO_SYSTEM_PLUGIN_PATH', default_value='')],
+    )
+
+    gz_plugin_path = SetEnvironmentVariable(
+        'GZ_SIM_SYSTEM_PLUGIN_PATH',
+        [plugin_path, ':', EnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', default_value='')],
+    )
 
     # Gazebo server (always runs)
     gazebo_server = ExecuteProcess(
@@ -109,6 +129,8 @@ def generate_launch_description():
                 arguments=[
                     '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
                     '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+                    '/cmd_drive@geometry_msgs/msg/Vector3]ignition.msgs.Vector3d',
+                    '/cmd_gear@std_msgs/msg/Int32]ignition.msgs.Int32',
                     '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
                     '/imu/data@sensor_msgs/msg/Imu[ignition.msgs.IMU',
                     '/mavros/global_position/global@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
@@ -184,6 +206,8 @@ def generate_launch_description():
         vehicle_x_arg,
         vehicle_y_arg,
         vehicle_z_arg,
+        ignition_plugin_path,
+        gz_plugin_path,
         gazebo_server,
         gazebo_client,
         bridge_node,

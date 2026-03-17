@@ -12,42 +12,33 @@ from typing import Dict, Optional
 import numpy as np
 
 # ROS message types
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped, Vector3
 from sensor_msgs.msg import Imu, NavSatFix, PointCloud2, Image
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, Int32
 
-# Assuming these interfaces exist in av-simulation
-# These would be imported from: from av_simulation.ros_adapter import ...
-# For now, defining minimal interface contracts
-
-
-class SimulationState:
-    """Container for simulation state"""
-    def __init__(self):
-        self.timestamp: float = 0.0
-        self.vehicle_pose: np.ndarray = np.zeros(6)  # [x, y, z, roll, pitch, yaw]
-        self.vehicle_velocity: np.ndarray = np.zeros(6)  # [vx, vy, vz, wx, wy, wz]
-        self.is_valid: bool = True
-
-
-class VehicleCommand:
-    """Container for vehicle commands"""
-    def __init__(self):
-        self.linear_velocity: float = 0.0
-        self.angular_velocity: float = 0.0
-        self.steering_angle: float = 0.0
-        self.timestamp: float = 0.0
-
-
-class SensorData:
-    """Container for sensor data"""
-    def __init__(self):
-        self.timestamp: float = 0.0
-        self.imu: Optional[Dict] = None
-        self.gps: Optional[Dict] = None
-        self.lidar: Optional[np.ndarray] = None
-        self.camera: Optional[np.ndarray] = None
+try:
+    from .control_mapping import (
+        DEFAULT_ACKERMANN_STEERING_LIMIT,
+        DEFAULT_ACKERMANN_WHEEL_BASE,
+        GEAR_NEUTRAL,
+        PRIUS_DRIVE_MODE,
+        TANK_DRIVE_MODE,
+        adapter_command_to_targets,
+        normalize_drive_mode,
+    )
+    from .sim_types import SensorData, SimulationState, VehicleCommand
+except ImportError:
+    from gazebo_adapter.control_mapping import (
+        DEFAULT_ACKERMANN_STEERING_LIMIT,
+        DEFAULT_ACKERMANN_WHEEL_BASE,
+        GEAR_NEUTRAL,
+        PRIUS_DRIVE_MODE,
+        TANK_DRIVE_MODE,
+        adapter_command_to_targets,
+        normalize_drive_mode,
+    )
+    from gazebo_adapter.sim_types import SensorData, SimulationState, VehicleCommand
 
 
 class SimulationAdapter:
@@ -90,6 +81,16 @@ class GazeboAdapter(SimulationAdapter, Node):
         self.config = config or {}
         self.vehicle_namespace = self.config.get('vehicle_namespace', '/vehicle')
         self.update_rate = self.config.get('update_rate', 100.0)  # Hz
+        self.drive_mode = normalize_drive_mode(
+            self.config.get('drive_mode', TANK_DRIVE_MODE)
+        )
+        self.ackermann_steering_limit = float(
+            self.config.get('ackermann_steering_limit', DEFAULT_ACKERMANN_STEERING_LIMIT)
+        )
+        self.ackermann_wheel_base = float(
+            self.config.get('ackermann_wheel_base', DEFAULT_ACKERMANN_WHEEL_BASE)
+        )
+        self.max_linear_speed = float(self.config.get('max_linear_speed', 10.0))
         
         # State tracking
         self._last_odom: Optional[Odometry] = None
@@ -108,6 +109,16 @@ class GazeboAdapter(SimulationAdapter, Node):
         self._cmd_steering_pub = self.create_publisher(
             Float64,
             f'{self.vehicle_namespace}/cmd_steering',
+            10
+        )
+        self._cmd_drive_pub = self.create_publisher(
+            Vector3,
+            f'{self.vehicle_namespace}/cmd_drive',
+            10
+        )
+        self._cmd_gear_pub = self.create_publisher(
+            Int32,
+            f'{self.vehicle_namespace}/cmd_gear',
             10
         )
         
@@ -158,6 +169,21 @@ class GazeboAdapter(SimulationAdapter, Node):
         """
         try:
             self.config.update(config)
+            self.drive_mode = normalize_drive_mode(
+                self.config.get('drive_mode', self.drive_mode)
+            )
+            self.ackermann_steering_limit = float(
+                self.config.get(
+                    'ackermann_steering_limit',
+                    self.ackermann_steering_limit,
+                )
+            )
+            self.ackermann_wheel_base = float(
+                self.config.get('ackermann_wheel_base', self.ackermann_wheel_base)
+            )
+            self.max_linear_speed = float(
+                self.config.get('max_linear_speed', self.max_linear_speed)
+            )
             self.get_logger().info(f'Initializing Gazebo adapter with config: {config}')
             
             # Wait for first odometry message to ensure Gazebo is running
@@ -200,8 +226,15 @@ class GazeboAdapter(SimulationAdapter, Node):
             
             # TODO: Call Gazebo reset service when available
             # For now, send zero commands
-            zero_cmd = Twist()
-            self._cmd_vel_pub.publish(zero_cmd)
+            if self.drive_mode == PRIUS_DRIVE_MODE:
+                zero_drive = Vector3()
+                self._cmd_drive_pub.publish(zero_drive)
+                neutral_gear = Int32()
+                neutral_gear.data = GEAR_NEUTRAL
+                self._cmd_gear_pub.publish(neutral_gear)
+            else:
+                zero_cmd = Twist()
+                self._cmd_vel_pub.publish(zero_cmd)
             
             return True
             
@@ -282,16 +315,37 @@ class GazeboAdapter(SimulationAdapter, Node):
             True if command sent successfully
         """
         try:
-            # Publish velocity command
+            targets = adapter_command_to_targets(
+                linear_velocity=cmd.linear_velocity,
+                angular_velocity=cmd.angular_velocity,
+                steering_angle=cmd.steering_angle,
+                drive_mode=self.drive_mode,
+                max_linear_speed=self.max_linear_speed,
+                ackermann_steering_limit=self.ackermann_steering_limit,
+                ackermann_wheel_base=self.ackermann_wheel_base,
+            )
+
+            if self.drive_mode == PRIUS_DRIVE_MODE:
+                drive = Vector3()
+                drive.x = targets.throttle
+                drive.y = targets.brake
+                drive.z = targets.steering_input
+                self._cmd_drive_pub.publish(drive)
+
+                gear = Int32()
+                gear.data = targets.gear
+                self._cmd_gear_pub.publish(gear)
+                return True
+
             twist = Twist()
-            twist.linear.x = cmd.linear_velocity
-            twist.angular.z = cmd.angular_velocity
+            twist.linear.x = targets.linear_velocity
+            twist.angular.z = targets.angular_velocity
             self._cmd_vel_pub.publish(twist)
             
-            # Publish steering command
-            steering = Float64()
-            steering.data = cmd.steering_angle
-            self._cmd_steering_pub.publish(steering)
+            if self.drive_mode == TANK_DRIVE_MODE:
+                steering = Float64()
+                steering.data = cmd.steering_angle
+                self._cmd_steering_pub.publish(steering)
             
             return True
             

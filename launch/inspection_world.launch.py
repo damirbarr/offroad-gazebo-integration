@@ -7,11 +7,17 @@ featuring a water table and inspection geometry.
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction, OpaqueFunction
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    OpaqueFunction,
+    SetEnvironmentVariable,
+    TimerAction,
+)
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import LaunchConfigurationEquals
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
+from launch_ros.substitutions import FindPackagePrefix, FindPackageShare
 
 
 def generate_launch_description():
@@ -33,13 +39,13 @@ def generate_launch_description():
     vehicle_model_arg = DeclareLaunchArgument(
         'vehicle_model',
         default_value='inspection_robot',
-        description='Vehicle model to spawn (inspection_robot, simple_boat, or custom model)'
+        description='Vehicle model to spawn (inspection_robot, prius_vehicle, simple_boat, or custom model)'
     )
     
     vehicle_x_arg = DeclareLaunchArgument(
         'vehicle_x',
-        default_value='0.0',
-        description='Vehicle spawn X position'
+        default_value='-15.0',
+        description='Vehicle spawn X position (default keeps land vehicles clear of the water table)'
     )
     
     vehicle_y_arg = DeclareLaunchArgument(
@@ -50,8 +56,8 @@ def generate_launch_description():
     
     vehicle_z_arg = DeclareLaunchArgument(
         'vehicle_z',
-        default_value='2.0',
-        description='Vehicle spawn Z position (higher to ensure it lands on platform)'
+        default_value='0.5',
+        description='Vehicle spawn Z position above the ground plane'
     )
     
     # Get configuration
@@ -64,11 +70,25 @@ def generate_launch_description():
     
     # Package paths
     pkg_share = FindPackageShare('offroad_gazebo_integration')
+    plugin_path = PathJoinSubstitution([
+        FindPackagePrefix('offroad_gazebo_integration'),
+        'lib',
+    ])
     world_file = PathJoinSubstitution([
         pkg_share,
         'worlds',
         'inspection_world.world'
     ])
+
+    ignition_plugin_path = SetEnvironmentVariable(
+        'IGN_GAZEBO_SYSTEM_PLUGIN_PATH',
+        [plugin_path, ':', EnvironmentVariable('IGN_GAZEBO_SYSTEM_PLUGIN_PATH', default_value='')],
+    )
+
+    gz_plugin_path = SetEnvironmentVariable(
+        'GZ_SIM_SYSTEM_PLUGIN_PATH',
+        [plugin_path, ':', EnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', default_value='')],
+    )
     
     # Gazebo server (always runs)
     gazebo_server = ExecuteProcess(
@@ -95,8 +115,10 @@ def generate_launch_description():
                 arguments=[
                     # Clock
                     '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
-                    # Robot command (differential drive)  
+                    # Vehicle command topic shared by tank and Ackermann models
                     '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+                    '/cmd_drive@geometry_msgs/msg/Vector3]ignition.msgs.Vector3d',
+                    '/cmd_gear@std_msgs/msg/Int32]ignition.msgs.Int32',
                     # Odometry
                     '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
                     # IMU (for heading conversion)
@@ -175,6 +197,8 @@ def generate_launch_description():
         vehicle_x_arg,
         vehicle_y_arg,
         vehicle_z_arg,
+        ignition_plugin_path,
+        gz_plugin_path,
         
         # Nodes and processes
         gazebo_server,

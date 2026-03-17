@@ -16,17 +16,33 @@ import threading
 import time
 from typing import Optional
 
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Vector3
 from sensor_msgs.msg import NavSatFix
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Float64
+from std_msgs.msg import Int32
 
-
-def quaternion_to_yaw(x, y, z, w):
-    """Extract yaw (radians) from quaternion."""
-    siny_cosp = 2.0 * (w * z + x * y)
-    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
-    return math.atan2(siny_cosp, cosy_cosp)
+try:
+    from .control_mapping import (
+        ACKERMANN_DRIVE_MODE,
+        DEFAULT_ACKERMANN_STEERING_LIMIT,
+        DEFAULT_ACKERMANN_WHEEL_BASE,
+        PRIUS_DRIVE_MODE,
+        TANK_DRIVE_MODE,
+        normalize_drive_mode,
+        udp_command_to_targets,
+    )
+    from .math_utils import quaternion_to_yaw
+except ImportError:
+    from gazebo_adapter.control_mapping import (
+        ACKERMANN_DRIVE_MODE,
+        DEFAULT_ACKERMANN_STEERING_LIMIT,
+        DEFAULT_ACKERMANN_WHEEL_BASE,
+        PRIUS_DRIVE_MODE,
+        TANK_DRIVE_MODE,
+        normalize_drive_mode,
+        udp_command_to_targets,
+    )
+    from gazebo_adapter.math_utils import quaternion_to_yaw
 
 
 class UdpBridge(Node):
@@ -47,7 +63,7 @@ class UdpBridge(Node):
     # Simple RPM estimation constants
     WHEEL_RADIUS = 0.35        # meters
     FINAL_DRIVE_RATIO = 3.5
-    RPM_PER_SPEED = 60.0 / (2.0 * math.pi * WHEEL_RADIUS) * FINAL_DRIVE_RATIO
+    RPM_PER_SPEED = 60.0 / (2.0 * 3.141592653589793 * WHEEL_RADIUS) * FINAL_DRIVE_RATIO
 
     def __init__(self):
         super().__init__('udp_bridge')
@@ -59,6 +75,11 @@ class UdpBridge(Node):
         self.declare_parameter('send_rate', 50.0)
         self.declare_parameter('max_linear_speed', 10.0)
         self.declare_parameter('max_angular_speed', 2.0)
+        self.declare_parameter('drive_mode', TANK_DRIVE_MODE)
+        self.declare_parameter(
+            'ackermann_steering_limit',
+            DEFAULT_ACKERMANN_STEERING_LIMIT,
+        )
 
         av_sim_ip = self.get_parameter('av_sim_ip').value
         cmd_port = self.get_parameter('av_sim_command_port').value
@@ -66,6 +87,11 @@ class UdpBridge(Node):
         send_rate = self.get_parameter('send_rate').value
         self.max_linear_speed = self.get_parameter('max_linear_speed').value
         self.max_angular_speed = self.get_parameter('max_angular_speed').value
+        self.drive_mode = normalize_drive_mode(self.get_parameter('drive_mode').value)
+        self.ackermann_steering_limit = float(
+            self.get_parameter('ackermann_steering_limit').value
+        )
+        self.ackermann_wheel_base = DEFAULT_ACKERMANN_WHEEL_BASE
 
         # UDP sockets
         self.command_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -77,6 +103,8 @@ class UdpBridge(Node):
 
         # ROS publishers
         self.cmd_vel_pub = self.create_publisher(Twist, '/vehicle/cmd_vel', 10)
+        self.cmd_drive_pub = self.create_publisher(Vector3, '/vehicle/cmd_drive', 10)
+        self.cmd_gear_pub = self.create_publisher(Int32, '/vehicle/cmd_gear', 10)
 
         # ROS subscribers
         self.create_subscription(Odometry, '/vehicle/odom', self.odom_callback, 10)
@@ -97,7 +125,8 @@ class UdpBridge(Node):
         self.send_timer = self.create_timer(1.0 / send_rate, self._send_sensor_data)
 
         self.get_logger().info(
-            f'UDP Bridge (JSON) started: recv :{cmd_port}, send {av_sim_ip}:{sensor_port} @ {send_rate} Hz'
+            f'UDP Bridge (JSON) started: recv :{cmd_port}, send {av_sim_ip}:{sensor_port} '
+            f'@ {send_rate} Hz, drive_mode={self.drive_mode}'
         )
 
     # ── Receive ──────────────────────────────────────────────
@@ -129,22 +158,53 @@ class UdpBridge(Node):
             return
 
         throttle = float(msg.get('throttle', 0.0))
-        steering = float(msg.get('steering', 0.0))*2
+        steering = float(msg.get('steering', 0.0))
+        gear = int(msg.get('gear', 3))
+        targets = udp_command_to_targets(
+            throttle=throttle,
+            steering=steering,
+            drive_mode=self.drive_mode,
+            max_linear_speed=self.max_linear_speed,
+            max_angular_speed=self.max_angular_speed,
+            gear=gear,
+            ackermann_steering_limit=self.ackermann_steering_limit,
+            ackermann_wheel_base=self.ackermann_wheel_base,
+        )
 
-        # Map to differential drive (tank steering)
-        # throttle → forward/backward speed
-        # steering → rotation rate (left/right wheels at different speeds)
-        # Note: negative sign inverts steering direction to match convention
+        if self.drive_mode == PRIUS_DRIVE_MODE:
+            drive = Vector3()
+            drive.x = targets.throttle
+            drive.y = targets.brake
+            drive.z = targets.steering_input
+            self.cmd_drive_pub.publish(drive)
+
+            gear_msg = Int32()
+            gear_msg.data = targets.gear
+            self.cmd_gear_pub.publish(gear_msg)
+
+            self.get_logger().info(
+                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, gear={gear} '
+                f'→ throttle={targets.throttle:.3f}, brake={targets.brake:.3f}, '
+                f'cmd_steer={targets.steering_input:.3f}, cmd_gear={targets.gear}'
+            )
+            return
+
         twist = Twist()
-        twist.linear.x = throttle * self.max_linear_speed
-        twist.angular.z = -steering * self.max_angular_speed
+        twist.linear.x = targets.linear_velocity
+        twist.angular.z = targets.angular_velocity
         self.cmd_vel_pub.publish(twist)
         
-        # Log received command for debugging
-        self.get_logger().info(
-            f'UDP CMD: throttle={throttle:.3f}, steering={steering:.3f} '
-            f'→ vel={twist.linear.x:.3f} m/s, ang={twist.angular.z:.3f} rad/s'
-        )
+        if self.drive_mode == ACKERMANN_DRIVE_MODE:
+            self.get_logger().info(
+                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, gear={gear} '
+                f'→ vel={twist.linear.x:.3f} m/s, steer={targets.steering_angle:.3f} rad, '
+                f'ang={twist.angular.z:.3f} rad/s'
+            )
+        else:
+            self.get_logger().info(
+                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, gear={gear} '
+                f'→ vel={twist.linear.x:.3f} m/s, ang={twist.angular.z:.3f} rad/s'
+            )
 
     # ── Send ─────────────────────────────────────────────────
 
@@ -158,7 +218,7 @@ class UdpBridge(Node):
 
         vx = odom.twist.twist.linear.x
         vy = odom.twist.twist.linear.y
-        speed = math.sqrt(vx * vx + vy * vy)
+        speed = (vx * vx + vy * vy) ** 0.5
         rpm = int(abs(speed) * self.RPM_PER_SPEED)
 
         q = odom.pose.pose.orientation

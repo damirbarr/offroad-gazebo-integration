@@ -34,6 +34,18 @@ def generate_launch_description():
         default_value='50.0',
         description='Sensor data send rate in Hz'
     )
+
+    drive_mode_arg = DeclareLaunchArgument(
+        'drive_mode',
+        default_value='tank',
+        description='Vehicle drive mode: tank, ackermann, or prius'
+    )
+
+    ackermann_steering_limit_arg = DeclareLaunchArgument(
+        'ackermann_steering_limit',
+        default_value='0.6458',
+        description='Maximum steering angle in radians used for Ackermann mapping'
+    )
     
     log_level_arg = DeclareLaunchArgument(
         'log_level',
@@ -53,10 +65,14 @@ def generate_launch_description():
             'av_sim_command_port': LaunchConfiguration('av_sim_command_port'),
             'av_sim_sensor_port': LaunchConfiguration('av_sim_sensor_port'),
             'send_rate': LaunchConfiguration('send_rate'),
+            'drive_mode': LaunchConfiguration('drive_mode'),
+            'ackermann_steering_limit': LaunchConfiguration('ackermann_steering_limit'),
         }],
         remappings=[
             # Map to actual topics from inspection world
             ('/vehicle/cmd_vel', '/cmd_vel'),
+            ('/vehicle/cmd_drive', '/cmd_drive'),
+            ('/vehicle/cmd_gear', '/cmd_gear'),
             ('/vehicle/cmd_steering', '/cmd_steering'),
             ('/vehicle/odom', '/odom'),
             ('/vehicle/imu', '/imu/data'),
@@ -69,6 +85,8 @@ def generate_launch_description():
         av_sim_command_port_arg,
         av_sim_sensor_port_arg,
         send_rate_arg,
+        drive_mode_arg,
+        ackermann_steering_limit_arg,
         log_level_arg,
         udp_bridge_node,
     ])

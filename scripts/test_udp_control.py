@@ -10,7 +10,13 @@ import time
 import sys
 import select
 
-def send_command(sock, host, port, throttle, steering, gear=3):
+GEAR_PARKING = 1
+GEAR_REVERSE = 2
+GEAR_NEUTRAL = 3
+GEAR_DRIVE = 4
+
+
+def send_command(sock, host, port, throttle, steering, gear=GEAR_DRIVE):
     """Send a control command via UDP"""
     cmd = {
         "type": "control",
@@ -28,7 +34,7 @@ def send_command(sock, host, port, throttle, steering, gear=3):
     
     payload = json.dumps(cmd).encode('utf-8')
     sock.sendto(payload, (host, port))
-    print(f"→ Sent: throttle={throttle:.2f}, steering={steering:.2f}")
+    print(f"→ Sent: throttle={throttle:.2f}, steering={steering:.2f}, gear={gear}")
 
 def receive_feedback(sock, timeout=0.1):
     """Receive feedback from UDP bridge"""
@@ -85,28 +91,84 @@ def main():
         # Test 1: Forward
         print("Test 1: Forward movement (5 seconds)")
         for i in range(50):
-            send_command(send_sock, gazebo_ip, command_port, throttle=0.3, steering=0.0)
+            send_command(
+                send_sock,
+                gazebo_ip,
+                command_port,
+                throttle=0.3,
+                steering=0.0,
+                gear=GEAR_DRIVE,
+            )
             receive_feedback(recv_sock)
             time.sleep(0.1)
         
         # Stop
         print("\nStopping...")
         for i in range(10):
-            send_command(send_sock, gazebo_ip, command_port, throttle=0.0, steering=0.0)
+            send_command(
+                send_sock,
+                gazebo_ip,
+                command_port,
+                throttle=0.0,
+                steering=0.0,
+                gear=GEAR_DRIVE,
+            )
             receive_feedback(recv_sock)
             time.sleep(0.1)
         
         # Test 2: Turn left
         print("\nTest 2: Turn left while moving (3 seconds)")
         for i in range(30):
-            send_command(send_sock, gazebo_ip, command_port, throttle=0.2, steering=0.5)
+            send_command(
+                send_sock,
+                gazebo_ip,
+                command_port,
+                throttle=0.2,
+                steering=0.5,
+                gear=GEAR_DRIVE,
+            )
             receive_feedback(recv_sock)
             time.sleep(0.1)
-        
+
         # Stop
         print("\nStopping...")
         for i in range(10):
-            send_command(send_sock, gazebo_ip, command_port, throttle=0.0, steering=0.0)
+            send_command(
+                send_sock,
+                gazebo_ip,
+                command_port,
+                throttle=0.0,
+                steering=0.0,
+                gear=GEAR_DRIVE,
+            )
+            receive_feedback(recv_sock)
+            time.sleep(0.1)
+
+        # Test 3: Reverse
+        print("\nTest 3: Reverse movement (3 seconds)")
+        for i in range(30):
+            send_command(
+                send_sock,
+                gazebo_ip,
+                command_port,
+                throttle=0.2,
+                steering=0.0,
+                gear=GEAR_REVERSE,
+            )
+            receive_feedback(recv_sock)
+            time.sleep(0.1)
+
+        # Test 4: Brake
+        print("\nTest 4: Brake command (2 seconds)")
+        for i in range(20):
+            send_command(
+                send_sock,
+                gazebo_ip,
+                command_port,
+                throttle=-0.6,
+                steering=0.0,
+                gear=GEAR_DRIVE,
+            )
             receive_feedback(recv_sock)
             time.sleep(0.1)
         
@@ -115,14 +177,16 @@ def main():
     else:
         print("=== Interactive Control Mode ===")
         print("Commands:")
-        print("  w/s - Forward/Backward (increase/decrease throttle)")
+        print("  w/s - Increase/decrease gas pedal (-1.0..1.0)")
         print("  a/d - Turn left/right (increase/decrease steering)")
+        print("  1/2/3/4 - Parking/Reverse/Neutral/Drive gear")
         print("  x   - Stop (zero throttle and steering)")
         print("  q   - Quit")
         print("")
         
         throttle = 0.0
         steering = 0.0
+        gear = GEAR_DRIVE
         
         # Set stdin to non-blocking
         import termios
@@ -158,9 +222,21 @@ def main():
                         throttle = 0.0
                         steering = 0.0
                         print("STOP")
+                    elif ch == '1':
+                        gear = GEAR_PARKING
+                        print("Gear: PARK")
+                    elif ch == '2':
+                        gear = GEAR_REVERSE
+                        print("Gear: REVERSE")
+                    elif ch == '3':
+                        gear = GEAR_NEUTRAL
+                        print("Gear: NEUTRAL")
+                    elif ch == '4':
+                        gear = GEAR_DRIVE
+                        print("Gear: DRIVE")
                 
                 # Send current command
-                send_command(send_sock, gazebo_ip, command_port, throttle, steering)
+                send_command(send_sock, gazebo_ip, command_port, throttle, steering, gear)
                 
                 # Receive and display feedback
                 receive_feedback(recv_sock)

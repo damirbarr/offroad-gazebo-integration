@@ -64,6 +64,12 @@ class UdpBridge(Node):
     WHEEL_RADIUS = 0.35        # meters
     FINAL_DRIVE_RATIO = 3.5
     RPM_PER_SPEED = 60.0 / (2.0 * 3.141592653589793 * WHEEL_RADIUS) * FINAL_DRIVE_RATIO
+    DEFAULT_CONTROL_GEAR = 3
+    REMOTE_DRIVING_STATE = 1
+    SOCKET_TIMEOUT_SEC = 0.1
+    UDP_BUFFER_SIZE_BYTES = 4096
+    UDP_PACKET_PREVIEW_BYTES = 100
+    FEEDBACK_LOG_INTERVAL = 100
 
     def __init__(self):
         super().__init__('udp_bridge')
@@ -96,7 +102,7 @@ class UdpBridge(Node):
         # UDP sockets
         self.command_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.command_socket.bind(('0.0.0.0', cmd_port))
-        self.command_socket.settimeout(0.1)
+        self.command_socket.settimeout(self.SOCKET_TIMEOUT_SEC)
 
         self.sensor_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.av_sim_address = (av_sim_ip, sensor_port)
@@ -113,7 +119,8 @@ class UdpBridge(Node):
         # State
         self.latest_odom: Optional[Odometry] = None
         self.latest_gps: Optional[NavSatFix] = None
-        self.vehicle_state = 1  # RemoteDriving
+        self.vehicle_state = self.REMOTE_DRIVING_STATE
+        self.feedback_counter = 0
         self.state_lock = threading.Lock()
 
         # Receiver thread
@@ -134,10 +141,10 @@ class UdpBridge(Node):
     def _receive_loop(self):
         while self.running and rclpy.ok():
             try:
-                data, addr = self.command_socket.recvfrom(4096)
-                # Log ALL incoming packets (debug level)
+                data, addr = self.command_socket.recvfrom(self.UDP_BUFFER_SIZE_BYTES)
                 self.get_logger().debug(
-                    f'UDP RX from {addr[0]}:{addr[1]} - {len(data)} bytes: {data[:100]}'
+                    f'UDP RX from {addr[0]}:{addr[1]} - {len(data)} bytes: '
+                    f'{data[:self.UDP_PACKET_PREVIEW_BYTES]}'
                 )
                 self._process_command(data)
             except socket.timeout:
@@ -150,7 +157,7 @@ class UdpBridge(Node):
             msg = json.loads(data.decode('utf-8'))
             self.get_logger().debug(f'JSON parsed OK: type={msg.get("type")}')
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            self.get_logger().warn(f'Invalid JSON command: {e} - raw data: {data}')
+            self.get_logger().warning(f'Invalid JSON command: {e} - raw data: {data}')
             return
 
         if msg.get('type') != 'control':
@@ -159,7 +166,7 @@ class UdpBridge(Node):
 
         throttle = float(msg.get('throttle', 0.0))
         steering = float(msg.get('steering', 0.0))
-        gear = int(msg.get('gear', 3))
+        gear = int(msg.get('gear', self.DEFAULT_CONTROL_GEAR))
         targets = udp_command_to_targets(
             throttle=throttle,
             steering=steering,
@@ -182,28 +189,38 @@ class UdpBridge(Node):
             gear_msg.data = targets.gear
             self.cmd_gear_pub.publish(gear_msg)
 
-            self.get_logger().info(
-                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, gear={gear} '
-                f'→ throttle={targets.throttle:.3f}, brake={targets.brake:.3f}, '
-                f'cmd_steer={targets.steering_input:.3f}, cmd_gear={targets.gear}'
-            )
+            self._log_control_mapping(throttle, steering, gear, targets)
             return
 
         twist = Twist()
         twist.linear.x = targets.linear_velocity
         twist.angular.z = targets.angular_velocity
         self.cmd_vel_pub.publish(twist)
-        
-        if self.drive_mode == ACKERMANN_DRIVE_MODE:
-            self.get_logger().info(
-                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, gear={gear} '
-                f'→ vel={twist.linear.x:.3f} m/s, steer={targets.steering_angle:.3f} rad, '
-                f'ang={twist.angular.z:.3f} rad/s'
+
+        self._log_control_mapping(throttle, steering, gear, targets, twist)
+
+    def _log_control_mapping(self, throttle, steering, gear, targets, twist=None):
+        if self.drive_mode == PRIUS_DRIVE_MODE:
+            self.get_logger().debug(
+                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, '
+                f'gear={gear} -> throttle={targets.throttle:.3f}, '
+                f'brake={targets.brake:.3f}, cmd_steer={targets.steering_input:.3f}, '
+                f'cmd_gear={targets.gear}'
             )
-        else:
-            self.get_logger().info(
-                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, gear={gear} '
-                f'→ vel={twist.linear.x:.3f} m/s, ang={twist.angular.z:.3f} rad/s'
+            return
+
+        if self.drive_mode == ACKERMANN_DRIVE_MODE and twist is not None:
+            self.get_logger().debug(
+                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, '
+                f'gear={gear} -> vel={twist.linear.x:.3f} m/s, '
+                f'steer={targets.steering_angle:.3f} rad, ang={twist.angular.z:.3f} rad/s'
+            )
+            return
+
+        if twist is not None:
+            self.get_logger().debug(
+                f'UDP CMD[{self.drive_mode}]: gas={throttle:.3f}, steering={steering:.3f}, '
+                f'gear={gear} -> vel={twist.linear.x:.3f} m/s, ang={twist.angular.z:.3f} rad/s'
             )
 
     # ── Send ─────────────────────────────────────────────────
@@ -241,12 +258,9 @@ class UdpBridge(Node):
         try:
             payload = json.dumps(feedback).encode('utf-8')
             self.sensor_socket.sendto(payload, self.av_sim_address)
-            # Log feedback occasionally (every 2 seconds at 50Hz = every 100 messages)
-            if not hasattr(self, '_feedback_counter'):
-                self._feedback_counter = 0
-            self._feedback_counter += 1
-            if self._feedback_counter % 100 == 0:
-                self.get_logger().info(
+            self.feedback_counter += 1
+            if self.feedback_counter % self.FEEDBACK_LOG_INTERVAL == 0:
+                self.get_logger().debug(
                     f'UDP FEEDBACK: speed={feedback["speed"]:.3f} m/s, '
                     f'rpm={feedback["rpm"]}, gps=({feedback["gps"]["latitude"]:.6f}, '
                     f'{feedback["gps"]["longitude"]:.6f})'

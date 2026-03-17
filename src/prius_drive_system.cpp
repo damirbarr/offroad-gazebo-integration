@@ -2,12 +2,12 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
-#include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <ignition/common/Console.hh>
 #include <ignition/gazebo/Model.hh>
 #include <ignition/gazebo/System.hh>
 #include <ignition/gazebo/components/JointForceCmd.hh>
@@ -191,7 +191,7 @@ class PriusDriveSystem:
     this->model = ignition::gazebo::Model(_entity);
     if (!this->model.Valid(_ecm))
     {
-      std::cerr << "PriusDriveSystem must be attached to a model entity" << std::endl;
+      ignerr << "PriusDriveSystem must be attached to a model entity" << std::endl;
       return;
     }
 
@@ -286,7 +286,7 @@ class PriusDriveSystem:
               return _joint == ignition::gazebo::kNullEntity;
             }))
     {
-      std::cerr << "PriusDriveSystem failed to resolve one or more Prius joints" << std::endl;
+      ignerr << "PriusDriveSystem failed to resolve one or more Prius joints" << std::endl;
       this->configured = false;
       return;
     }
@@ -304,8 +304,8 @@ class PriusDriveSystem:
             &PriusDriveSystem::OnDriveCommand,
             this))
     {
-      std::cerr << "PriusDriveSystem failed to subscribe to drive topic " << this->driveTopic
-                << std::endl;
+      ignerr << "PriusDriveSystem failed to subscribe to drive topic " << this->driveTopic
+             << std::endl;
       this->configured = false;
       return;
     }
@@ -315,8 +315,8 @@ class PriusDriveSystem:
             &PriusDriveSystem::OnGearCommand,
             this))
     {
-      std::cerr << "PriusDriveSystem failed to subscribe to gear topic " << this->gearTopic
-                << std::endl;
+      ignerr << "PriusDriveSystem failed to subscribe to gear topic " << this->gearTopic
+             << std::endl;
       this->configured = false;
       return;
     }

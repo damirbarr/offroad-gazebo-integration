@@ -118,6 +118,7 @@ nc -zvu 127.0.0.1 9002  # av-simulation feedback listener
 **Check logs:**
 ```bash
 docker logs gazebo-sim
+# For detailed UDP bridge traces, rerun make with LOG_LEVEL=debug.
 ```
 
 ### "No sensor data received"
@@ -142,7 +143,7 @@ Or with the simulation running, use `docker exec -it gazebo-sim bash` then sourc
    For the Prius path, inspect `ros2 topic echo /cmd_drive` and `ros2 topic echo /cmd_gear`.
 
 3. **Check UDP bridge:**
-   Look for "Received control command" in logs
+   Re-run with `LOG_LEVEL=debug` and inspect `docker logs` for detailed UDP command traces
 
 ### Prius drive mode
 

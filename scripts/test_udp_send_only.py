@@ -37,7 +37,7 @@ def main():
         print("")
         print("Example: ./test_udp_send_only.py 127.0.0.1 test")
         print("")
-        print("Watch logs: docker logs -f gazebo-sim-inspection | grep 'UDP CMD'")
+        print("For detailed bridge traces, start Gazebo with LOG_LEVEL=debug and follow docker logs.")
         sys.exit(1)
     
     gazebo_ip = sys.argv[1]
@@ -48,7 +48,7 @@ def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
     print(f"✓ Sending commands to {gazebo_ip}:{command_port}")
-    print(f"  Watch logs with: docker logs -f gazebo-sim-inspection | grep -E 'UDP CMD|speed'")
+    print("  For detailed bridge traces, start Gazebo with LOG_LEVEL=debug and follow docker logs.")
     print("")
     
     if test_mode:
@@ -91,7 +91,7 @@ def main():
             time.sleep(0.1)
         
         print("\n=== Test complete ===")
-        print("Check the logs to see the robot's response!")
+        print("Use ROS topic echo or debug bridge logs to inspect the robot response.")
         
     else:
         print("=== Interactive Control Mode ===")
@@ -101,8 +101,7 @@ def main():
         print("  x   - Stop (zero throttle and steering)")
         print("  q   - Quit")
         print("")
-        print("Watch another terminal for logs:")
-        print("  docker logs -f gazebo-sim-inspection | grep -E 'UDP CMD|speed'")
+        print("If you want detailed bridge traces, start Gazebo with LOG_LEVEL=debug and follow docker logs.")
         print("")
         
         throttle = 0.0

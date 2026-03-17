@@ -9,6 +9,7 @@ endif()
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
+find_package(ignition-common4 REQUIRED)
 find_package(ignition-gazebo6 REQUIRED)
 find_package(ignition-msgs8 REQUIRED)
 find_package(ignition-plugin1 REQUIRED COMPONENTS register)
@@ -33,6 +34,7 @@ add_library(PriusDriveSystem SHARED
 target_compile_features(PriusDriveSystem PUBLIC cxx_std_17)
 target_link_libraries(PriusDriveSystem
   PRIVATE
+    ignition-common4::ignition-common4
     ignition-gazebo6::ignition-gazebo6
     ignition-msgs8::ignition-msgs8
     ignition-plugin1::ignition-plugin1
@@ -128,6 +130,7 @@ if(BUILD_TESTING)
   
   # Python tests
   ament_add_pytest_test(test_adapter test/test_adapter.py)
+  ament_add_pytest_test(test_prius_model test/test_prius_model.py)
   ament_add_pytest_test(test_terrain test/test_terrain.py)
 endif()
 

@@ -23,9 +23,9 @@ Add to your av-simulation config file (e.g., `configs/simulation.ini`):
 
 ```ini
 [udp_gazebo]
-server_ip = 127.0.0.1           # Gazebo bridge IP (use host.docker.internal for Docker)
+server_ip = 127.0.0.1           # Gazebo command port published on the host
 server_port = 9001              # Port for sending commands to Gazebo
-client_ip = 127.0.0.1           # Local IP for receiving sensor data
+client_ip = 127.0.0.1           # av-simulation listens locally for feedback
 client_port = 9002              # Port for receiving from Gazebo
 send_interval_ms = 10           # 100 Hz command rate
 receive_timeout_ms = 100
@@ -34,9 +34,10 @@ polling_interval_ms = 1
 max_packet_size = 4096
 ```
 
-**For Docker:** If running Gazebo in Docker and av-simulation on host:
-```ini
-server_ip = host.docker.internal  # Docker host machine
+**For Docker:** keep the av-simulation config above, but launch Gazebo with a host-reachable
+feedback target:
+```bash
+make run-prius AV_SIM_IP=127.0.0.1
 ```
 
 ## Step 3: Build Gazebo Docker Image
@@ -59,12 +60,15 @@ Takes ~10 minutes on first build (Docker caches for future builds).
 **Option A: All-in-one (Recommended)**
 
 ```bash
-make run
+make run        # inspection_robot tank mode
+# or
+make run-prius  # Prius drive-by-wire mode
 ```
 
 This starts:
 1. Inspection world (Gazebo) with vehicle and sensors
 2. UDP bridge for av-simulation communication
+3. Tank or Prius control mapping, depending on the target you chose
 
 ## Step 5: Run av-simulation
 
@@ -107,8 +111,8 @@ docker ps | grep gazebo-sim
 
 **Check if ports are open:**
 ```bash
-nc -zvu 127.0.0.1 9001  # Command port
-nc -zvu 127.0.0.1 9002  # Sensor port
+nc -zvu 127.0.0.1 9001  # Gazebo command port
+nc -zvu 127.0.0.1 9002  # av-simulation feedback listener
 ```
 
 **Check logs:**
@@ -135,10 +139,38 @@ Or with the simulation running, use `docker exec -it gazebo-sim bash` then sourc
 
 2. **Check ROS commands:**
    With the simulation running: `docker exec -it gazebo-sim bash`, then `source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && ros2 topic echo /cmd_vel`
-   Should show velocity commands when av-simulation sends throttle.
+   For the Prius path, inspect `ros2 topic echo /cmd_drive` and `ros2 topic echo /cmd_gear`.
 
 3. **Check UDP bridge:**
    Look for "Received control command" in logs
+
+### Prius drive mode
+
+To run the Prius vehicle explicitly:
+
+```bash
+make run-prius
+```
+
+The Prius path expects the real Ottopia gear values:
+- `1` = Parking
+- `2` = Reverse
+- `3` = Neutral
+- `4` = Driving
+
+If you launch `inspection_world.launch.py` manually with `prius_vehicle`, keep it off the
+water-table origin:
+
+```bash
+ros2 launch offroad_gazebo_integration inspection_world.launch.py \
+  vehicle_model:=prius_vehicle vehicle_x:=-15.0 vehicle_y:=0.0 vehicle_z:=0.5
+```
+
+For the off-road world:
+
+```bash
+make run-world-prius
+```
 
 ### Docker networking issues
 

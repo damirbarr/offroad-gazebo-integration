@@ -19,7 +19,7 @@ This document explains how `offroad-gazebo-integration` communicates with Ottopi
 │  ┌────────────────────────────────────────────────────┐  │
 │  │  UdpBridge (udp_bridge.py)                         │  │
 │  │  - Receives control JSON on port 9001              │  │
-│  │  - Sends feedback JSON on port 9002                │  │
+│  │  - Sends feedback JSON to av-simulation port 9002  │  │
 │  │  - Converts to/from ROS2 messages                  │  │
 │  └──────────────────┬─────────────────────────────────┘  │
 │                     │ ROS2 Topics                         │
@@ -33,6 +33,10 @@ This document explains how `offroad-gazebo-integration` communicates with Ottopi
 
 All messages are UTF-8 encoded JSON objects sent as single UDP datagrams.
 
+The external JSON protocol stays the same for both supported drive modes:
+- `drive_mode:=tank` for the legacy `inspection_robot`
+- `drive_mode:=prius` for the `prius_vehicle`
+
 ### Control Command (av-simulation → Gazebo, port 9001)
 
 ```json
@@ -41,7 +45,7 @@ All messages are UTF-8 encoded JSON objects sent as single UDP datagrams.
   "timestamp": 1708099200000,
   "throttle": 0.5,
   "steering": -0.3,
-  "gear": 3,
+  "gear": 4,
   "turn_left": false,
   "turn_right": true,
   "high_beam": false,
@@ -55,9 +59,9 @@ All messages are UTF-8 encoded JSON objects sent as single UDP datagrams.
 |-------------|---------|--------------------------------------------|
 | type        | string  | Always `"control"`                         |
 | timestamp   | int     | Epoch milliseconds                         |
-| throttle    | float   | Gas pedal / brake, −1.0 to 1.0            |
+| throttle    | float   | Ottopia gas pedal, −1.0 to 1.0; negative values are brake requests |
 | steering    | float   | Steering wheel, −1.0 (left) to 1.0 (right)|
-| gear        | int     | 0=Park, 1=Reverse, 2=Neutral, 3=Drive     |
+| gear        | int     | 1=Park, 2=Reverse, 3=Neutral, 4=Drive     |
 | turn_left   | bool    | Left turn signal                           |
 | turn_right  | bool    | Right turn signal                          |
 | high_beam   | bool    | High-beam lights                           |
@@ -113,6 +117,11 @@ heartbeat_timeout_ms = 5000
 ./av_simulation /path/to/configs/ --adapter=udp_gazebo
 ```
 
+When Gazebo runs in Docker and `av-simulation` runs on the host:
+- Gazebo should publish only the command port (`9001/udp`) from the container.
+- `av-simulation` should keep `9002/udp` on the host for its feedback listener.
+- Use `make run-prius AV_SIM_IP=127.0.0.1` or `make run AV_SIM_IP=127.0.0.1`; the Makefile rewrites host loopback for the container.
+
 ### offroad-gazebo-integration
 
 ```bash
@@ -124,7 +133,16 @@ ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
   av_sim_ip:=127.0.0.1 \
   av_sim_command_port:=9001 \
   av_sim_sensor_port:=9002 \
-  send_rate:=50.0
+  send_rate:=50.0 \
+  drive_mode:=tank
+
+# Prius drive-by-wire option on the same JSON contract
+ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
+  av_sim_ip:=127.0.0.1 \
+  av_sim_command_port:=9001 \
+  av_sim_sensor_port:=9002 \
+  send_rate:=50.0 \
+  drive_mode:=prius
 ```
 
 ## Testing
@@ -138,7 +156,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 msg = json.dumps({
     "type": "control",
     "timestamp": int(time.time() * 1000),
-    "throttle": 0.5, "steering": 0.0, "gear": 3,
+    "throttle": 0.5, "steering": 0.0, "gear": 4,
     "turn_left": False, "turn_right": False,
     "high_beam": False, "low_beam": True,
     "horn": False, "hazard": False,
@@ -150,6 +168,8 @@ sock.sendto(msg, ("127.0.0.1", 9001))
 
 ```bash
 ros2 topic echo /vehicle/cmd_vel
+ros2 topic echo /vehicle/cmd_drive
+ros2 topic echo /vehicle/cmd_gear
 ros2 topic echo /vehicle/odom
 ```
 
@@ -165,6 +185,6 @@ python -m pytest test/test_adapter.py -v
 | Symptom | Check |
 |---------|-------|
 | No communication | `sudo tcpdump -i any udp port 9001 -X` |
-| Vehicle not moving | `ros2 topic echo /vehicle/cmd_vel` |
+| Vehicle not moving | `ros2 topic echo /vehicle/cmd_vel` or `ros2 topic echo /vehicle/cmd_drive` |
 | JSON parse errors | Ensure both sides use UTF-8 JSON (no binary packing) |
 | Connection timeout | av-simulation heartbeat_timeout_ms, network/firewall |

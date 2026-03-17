@@ -5,15 +5,29 @@ Unit tests for Gazebo adapter and UDP JSON protocol
 
 import json
 import math
+from pathlib import Path
+import sys
 import time
 import unittest
 
 import numpy as np
-from gazebo_adapter.adapter import (
-    SimulationState,
-    VehicleCommand,
-    SensorData,
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+
+from gazebo_adapter.control_mapping import (
+    ACKERMANN_DRIVE_MODE,
+    DEFAULT_ACKERMANN_STEERING_LIMIT,
+    GEAR_DRIVE,
+    GEAR_NEUTRAL,
+    GEAR_PARKING,
+    GEAR_REVERSE,
+    PRIUS_DRIVE_MODE,
+    TANK_DRIVE_MODE,
+    adapter_command_to_targets,
+    udp_command_to_targets,
 )
+from gazebo_adapter.math_utils import quaternion_to_yaw
+from gazebo_adapter.sim_types import SensorData, SimulationState, VehicleCommand
 
 
 class TestSimulationState(unittest.TestCase):
@@ -50,6 +64,139 @@ class TestSensorData(unittest.TestCase):
         self.assertIsNone(data.gps)
         self.assertIsNone(data.lidar)
         self.assertIsNone(data.camera)
+
+
+class TestControlMapping(unittest.TestCase):
+    def test_tank_mapping_uses_yaw_rate(self):
+        targets = udp_command_to_targets(
+            throttle=0.5,
+            steering=0.25,
+            drive_mode=TANK_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+        )
+        self.assertAlmostEqual(targets.linear_velocity, 5.0)
+        self.assertAlmostEqual(targets.angular_velocity, -0.5)
+        self.assertAlmostEqual(targets.steering_angle, 0.0)
+
+    def test_ackermann_mapping_uses_steering_limit(self):
+        targets = udp_command_to_targets(
+            throttle=0.5,
+            steering=1.0,
+            drive_mode=ACKERMANN_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+            ackermann_steering_limit=DEFAULT_ACKERMANN_STEERING_LIMIT,
+        )
+        self.assertAlmostEqual(targets.linear_velocity, 5.0)
+        self.assertAlmostEqual(
+            targets.steering_angle,
+            -DEFAULT_ACKERMANN_STEERING_LIMIT,
+        )
+        self.assertLess(targets.angular_velocity, 0.0)
+
+    def test_ackermann_mapping_clamps_steering_input(self):
+        targets = udp_command_to_targets(
+            throttle=0.3,
+            steering=3.0,
+            drive_mode=ACKERMANN_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+        )
+        self.assertAlmostEqual(
+            targets.steering_angle,
+            -DEFAULT_ACKERMANN_STEERING_LIMIT,
+        )
+
+    def test_ackermann_mapping_preserves_reverse(self):
+        targets = udp_command_to_targets(
+            throttle=-0.4,
+            steering=-0.5,
+            drive_mode=ACKERMANN_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+        )
+        self.assertAlmostEqual(targets.linear_velocity, -4.0)
+        self.assertGreater(targets.steering_angle, 0.0)
+        self.assertLess(targets.angular_velocity, 0.0)
+
+    def test_adapter_ackermann_uses_steering_angle(self):
+        targets = adapter_command_to_targets(
+            linear_velocity=6.0,
+            angular_velocity=99.0,
+            steering_angle=0.2,
+            drive_mode=ACKERMANN_DRIVE_MODE,
+        )
+        self.assertAlmostEqual(targets.linear_velocity, 6.0)
+        self.assertAlmostEqual(targets.steering_angle, 0.2)
+        self.assertNotEqual(targets.angular_velocity, 99.0)
+
+    def test_prius_mapping_uses_gear_for_forward_motion(self):
+        targets = udp_command_to_targets(
+            throttle=0.6,
+            steering=0.25,
+            gear=GEAR_DRIVE,
+            drive_mode=PRIUS_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+        )
+        self.assertAlmostEqual(targets.throttle, 0.6)
+        self.assertAlmostEqual(targets.brake, 0.0)
+        self.assertAlmostEqual(targets.steering_input, 0.25)
+        self.assertEqual(targets.gear, GEAR_DRIVE)
+
+    def test_prius_mapping_uses_reverse_gear_not_negative_speed(self):
+        targets = udp_command_to_targets(
+            throttle=0.4,
+            steering=-0.5,
+            gear=GEAR_REVERSE,
+            drive_mode=PRIUS_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+        )
+        self.assertAlmostEqual(targets.throttle, 0.4)
+        self.assertAlmostEqual(targets.brake, 0.0)
+        self.assertAlmostEqual(targets.steering_input, -0.5)
+        self.assertEqual(targets.gear, GEAR_REVERSE)
+
+    def test_prius_mapping_converts_negative_gas_to_brake(self):
+        targets = udp_command_to_targets(
+            throttle=-0.7,
+            steering=0.0,
+            gear=GEAR_DRIVE,
+            drive_mode=PRIUS_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+        )
+        self.assertAlmostEqual(targets.throttle, 0.0)
+        self.assertAlmostEqual(targets.brake, 0.7)
+        self.assertEqual(targets.gear, GEAR_DRIVE)
+
+    def test_prius_mapping_ignores_positive_gas_in_parking(self):
+        targets = udp_command_to_targets(
+            throttle=0.8,
+            steering=0.1,
+            gear=GEAR_PARKING,
+            drive_mode=PRIUS_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+        )
+        self.assertAlmostEqual(targets.throttle, 0.0)
+        self.assertAlmostEqual(targets.brake, 0.0)
+        self.assertEqual(targets.gear, GEAR_PARKING)
+
+    def test_prius_mode_normalizes_unknown_gear_to_neutral(self):
+        targets = udp_command_to_targets(
+            throttle=0.5,
+            steering=0.0,
+            gear=999,
+            drive_mode=PRIUS_DRIVE_MODE,
+            max_linear_speed=10.0,
+            max_angular_speed=2.0,
+        )
+        self.assertAlmostEqual(targets.throttle, 0.0)
+        self.assertAlmostEqual(targets.brake, 0.0)
+        self.assertEqual(targets.gear, GEAR_NEUTRAL)
 
 
 # ── JSON UDP Protocol Tests ──────────────────────────────────────
@@ -160,7 +307,6 @@ class TestJsonFeedbackMessage(unittest.TestCase):
     def test_azimuth_from_quaternion(self):
         """Azimuth computed from yaw should match expected value."""
         # quaternion for 90° yaw: (0, 0, sin(pi/4), cos(pi/4))
-        from gazebo_adapter.udp_bridge import quaternion_to_yaw
         yaw = quaternion_to_yaw(0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4))
         self.assertAlmostEqual(math.degrees(yaw), 90.0, places=3)
 

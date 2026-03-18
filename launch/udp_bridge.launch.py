@@ -68,16 +68,6 @@ def generate_launch_description():
             'drive_mode': LaunchConfiguration('drive_mode'),
             'ackermann_steering_limit': LaunchConfiguration('ackermann_steering_limit'),
         }],
-        remappings=[
-            # Map to actual topics from inspection world
-            ('/vehicle/cmd_vel', '/cmd_vel'),
-            ('/vehicle/cmd_drive', '/cmd_drive'),
-            ('/vehicle/cmd_gear', '/cmd_gear'),
-            ('/vehicle/cmd_steering', '/cmd_steering'),
-            ('/vehicle/odom', '/odom'),
-            ('/vehicle/imu', '/imu/data'),
-            ('/vehicle/gps', '/mavros/global_position/global'),
-        ]
     )
     
     return LaunchDescription([

@@ -125,12 +125,13 @@ docker logs gazebo-sim
 
 **Verify Gazebo topics are publishing:**
 ```bash
-# Run a container and check topics (exit when done)
-docker run --rm -it --entrypoint bash offroad-gazebo-integration:latest -c "\
-  source /opt/ros/humble/setup.bash && source /workspace/install/setup.bash && \
-  ros2 topic list && ros2 topic echo /odom"
+# One-command topic report for the flat robot
+make report-topics
+
+# One-command topic report for the Prius
+make report-topics-prius
 ```
-Or with the simulation running, use `docker exec -it gazebo-sim bash` then source and run `ros2 topic list`.
+Or with the simulation running, use `docker exec -it gazebo-sim bash` then source and run `/workspace/src/offroad_gazebo_integration/test_bridge.sh`.
 
 ### Vehicle not moving
 

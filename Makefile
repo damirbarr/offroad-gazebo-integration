@@ -1,7 +1,7 @@
 # Makefile for offroad-gazebo-integration
 # Quick start for Gazebo off-road simulation with av-simulation integration
 
-.PHONY: help build check-image run run-inspection run-prius run-world run-world-prius clean stop check-avsim
+.PHONY: help build check-image run run-inspection run-prius run-world run-world-prius report-topics report-topics-prius clean stop check-avsim
 
 # Docker image name
 IMAGE_NAME := offroad-gazebo-integration
@@ -44,6 +44,8 @@ help:
 	@echo "  make run-prius        - Run inspection world with Prius drive-by-wire vehicle"
 	@echo "  make run-world        - Run offroad world (desert_terrain) + UDP bridge"
 	@echo "  make run-world-prius  - Run offroad world with Prius drive-by-wire vehicle"
+	@echo "  make report-topics    - Launch inspection_robot headless and print the published topic contract"
+	@echo "  make report-topics-prius - Launch prius_vehicle headless and print the published topic contract"
 	@echo "  make clean            - Remove Docker image"
 	@echo "  make stop             - Stop running container"
 	@echo ""
@@ -183,6 +185,42 @@ run-world-prius: check-image
 				av_sim_sensor_port:=$(AV_SIM_SENSOR_PORT) \
 				drive_mode:=prius \
 				log_level:=$(LOG_LEVEL) \
+		"
+
+report-topics: check-image
+	@echo "Reporting published topics for inspection_robot"
+	docker run --rm \
+		--name $(CONTAINER_NAME)-report \
+		$(IMAGE_REF) \
+		bash -lc " \
+			ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=true \
+				vehicle_model:=inspection_robot \
+				vehicle_x:=-15.0 \
+				vehicle_y:=0.0 \
+				vehicle_z:=0.5 >/tmp/world.log 2>&1 & \
+			LAUNCH_PID=\$$! && \
+			sleep 28 && \
+			/workspace/src/offroad_gazebo_integration/test_bridge.sh && \
+			kill \$$LAUNCH_PID 2>/dev/null || true && \
+			wait \$$LAUNCH_PID 2>/dev/null || true \
+		"
+
+report-topics-prius: check-image
+	@echo "Reporting published topics for prius_vehicle"
+	docker run --rm \
+		--name $(CONTAINER_NAME)-report-prius \
+		$(IMAGE_REF) \
+		bash -lc " \
+			ros2 launch offroad_gazebo_integration inspection_world.launch.py headless:=true \
+				vehicle_model:=prius_vehicle \
+				vehicle_x:=-15.0 \
+				vehicle_y:=0.0 \
+				vehicle_z:=0.5 >/tmp/world.log 2>&1 & \
+			LAUNCH_PID=\$$! && \
+			sleep 28 && \
+			/workspace/src/offroad_gazebo_integration/test_bridge.sh && \
+			kill \$$LAUNCH_PID 2>/dev/null || true && \
+			wait \$$LAUNCH_PID 2>/dev/null || true \
 		"
 
 stop:

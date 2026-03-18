@@ -171,13 +171,23 @@ ros2 topic echo /vehicle/cmd_vel
 ros2 topic echo /vehicle/cmd_drive
 ros2 topic echo /vehicle/cmd_gear
 ros2 topic echo /vehicle/odom
+ros2 topic echo /vehicle/gps
+ros2 topic echo /vehicle/lidar/points
+```
+
+For a fuller report with raw topics and aliases together:
+
+```bash
+make report-topics
+# or
+make report-topics-prius
 ```
 
 ### Run unit tests
 
 ```bash
 cd offroad-gazebo-integration
-python -m pytest test/test_adapter.py -v
+python3 -m pytest test/test_adapter.py test/test_prius_model.py test/test_topic_contract.py -v
 ```
 
 ## Troubleshooting

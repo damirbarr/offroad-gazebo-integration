@@ -243,18 +243,30 @@ Pre-configured worlds in `worlds/`:
 
 ### ROS Topics
 
-**Published by simulator:**
-- `/vehicle/odom` (nav_msgs/Odometry) - Vehicle odometry
-- `/vehicle/imu` (sensor_msgs/Imu) - IMU data
-- `/vehicle/gps` (sensor_msgs/NavSatFix) - GPS position
-- `/vehicle/lidar/points` (sensor_msgs/PointCloud2) - LIDAR
-- `/vehicle/camera/image_raw` (sensor_msgs/Image) - Camera
+**Raw simulator topics:**
+- `/odom` (nav_msgs/Odometry) - Vehicle odometry
+- `/imu/data` (sensor_msgs/Imu) - IMU data
+- `/mavros/global_position/global` (sensor_msgs/NavSatFix) - GPS position
+- `/mavros/global_position/compass_hdg` (std_msgs/Float64) - Heading derived from IMU
+- `/mavros/global_position/raw/gps_vel` (geometry_msgs/TwistStamped) - GPS velocity placeholder
+- `/lidar` (sensor_msgs/LaserScan) - LiDAR scan
+- `/velodyne_points` (sensor_msgs/PointCloud2) - Point cloud converted from `/lidar`
+
+**Compatibility aliases published alongside the raw topics:**
+- `/vehicle/odom` (nav_msgs/Odometry) - Vehicle odometry alias
+- `/ego/odometry` (nav_msgs/Odometry) - `ottonomy`-friendly odometry alias
+- `/vehicle/imu` (sensor_msgs/Imu) - IMU alias
+- `/vehicle/gps` (sensor_msgs/NavSatFix) - GPS alias
+- `/vehicle/lidar/points` (sensor_msgs/PointCloud2) - Point cloud alias
 
 **Subscribed by simulator:**
 - `/vehicle/cmd_vel` (geometry_msgs/Twist) - Velocity commands
 - `/vehicle/cmd_drive` (geometry_msgs/Vector3) - Prius throttle / brake / steering commands
 - `/vehicle/cmd_gear` (std_msgs/Int32) - Prius gear commands using Ottopia gear values
-- `/vehicle/cmd_steering` (std_msgs/Float64) - Legacy steering angle topic for non-Prius paths
+
+To print the current published topic contract end-to-end:
+- `make report-topics` - `inspection_robot`
+- `make report-topics-prius` - `prius_vehicle`
 
 ### Parameters
 

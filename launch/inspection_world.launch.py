@@ -188,6 +188,19 @@ def generate_launch_description():
             )
         ]
     )
+
+    # Topic relay for stable /vehicle/* and /ego/odometry aliases
+    topic_relay = TimerAction(
+        period=13.0,
+        actions=[
+            Node(
+                package='offroad_gazebo_integration',
+                executable='topic_relay',
+                output='screen',
+                parameters=[{'use_sim_time': use_sim_time}]
+            )
+        ]
+    )
     
     return LaunchDescription([
         # Arguments
@@ -207,4 +220,5 @@ def generate_launch_description():
         spawn_vehicle,
         sensor_converter,
         laserscan_converter,
+        topic_relay,
     ])

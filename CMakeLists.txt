@@ -72,6 +72,10 @@ install(PROGRAMS src/gazebo_adapter/laserscan_to_pointcloud.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME laserscan_to_pointcloud
 )
+install(PROGRAMS src/gazebo_adapter/topic_relay.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME topic_relay
+)
 install(PROGRAMS src/gazebo_adapter/teleop_keyboard.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME teleop_keyboard
@@ -131,6 +135,7 @@ if(BUILD_TESTING)
   # Python tests
   ament_add_pytest_test(test_adapter test/test_adapter.py)
   ament_add_pytest_test(test_prius_model test/test_prius_model.py)
+  ament_add_pytest_test(test_topic_contract test/test_topic_contract.py)
   ament_add_pytest_test(test_terrain test/test_terrain.py)
 endif()
 

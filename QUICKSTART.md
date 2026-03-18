@@ -63,12 +63,15 @@ Takes ~10 minutes on first build (Docker caches for future builds).
 make run        # inspection_robot tank mode
 # or
 make run-prius  # Prius drive-by-wire mode
+# or
+make run-prius LINUX_PLAYER_IP=127.0.0.1  # Linux Player running on the host
 ```
 
 This starts:
 1. Inspection world (Gazebo) with vehicle and sensors
 2. UDP bridge for av-simulation communication
 3. Tank or Prius control mapping, depending on the target you chose
+4. For `prius_vehicle`, six H.265 RTP camera feeds sent to Linux Player on ports `1230-1235`
 
 ## Step 5: Run av-simulation
 
@@ -154,6 +157,12 @@ To run the Prius vehicle explicitly:
 make run-prius
 ```
 
+If Linux Player is running on the host machine, point the Prius video streamer at it:
+
+```bash
+make run-prius LINUX_PLAYER_IP=127.0.0.1
+```
+
 The Prius path expects the real Ottopia gear values:
 - `1` = Parking
 - `2` = Reverse
@@ -165,7 +174,8 @@ water-table origin:
 
 ```bash
 ros2 launch offroad_gazebo_integration inspection_world.launch.py \
-  vehicle_model:=prius_vehicle vehicle_x:=-15.0 vehicle_y:=0.0 vehicle_z:=0.5
+  vehicle_model:=prius_vehicle vehicle_x:=-15.0 vehicle_y:=0.0 vehicle_z:=0.5 \
+  linux_player_ip:=127.0.0.1
 ```
 
 For the off-road world:

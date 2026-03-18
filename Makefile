@@ -13,6 +13,7 @@ CONTAINER_NAME := gazebo-sim
 AV_SIM_IP ?= 192.168.10.128 # THE AV-SIMULATION IP
 AV_SIM_CMD_PORT ?= 9001
 AV_SIM_SENSOR_PORT ?= 9002
+LINUX_PLAYER_IP ?= 127.0.0.1
 
 # VNC: set to false to disable VNC/GUI (default: true, always has VNC)
 USE_VNC ?= true
@@ -22,6 +23,7 @@ LOG_LEVEL ?= info
 
 # When Gazebo runs in Docker, loopback must resolve back to the host machine.
 DOCKER_AV_SIM_IP := $(if $(filter 127.0.0.1 localhost,$(AV_SIM_IP)),host.docker.internal,$(AV_SIM_IP))
+DOCKER_LINUX_PLAYER_IP := $(if $(filter 127.0.0.1 localhost,$(LINUX_PLAYER_IP)),host.docker.internal,$(LINUX_PLAYER_IP))
 
 help:
 	@echo "╔════════════════════════════════════════════════════════════════╗"
@@ -55,12 +57,14 @@ help:
 	@echo "  AV_SIM_IP=$(AV_SIM_IP)"
 	@echo "  AV_SIM_CMD_PORT=$(AV_SIM_CMD_PORT)"
 	@echo "  AV_SIM_SENSOR_PORT=$(AV_SIM_SENSOR_PORT)"
+	@echo "  LINUX_PLAYER_IP=$(LINUX_PLAYER_IP)"
 	@echo "  USE_VNC=$(USE_VNC) (default: true, GUI at http://localhost:8080/vnc.html)"
 	@echo "  LOG_LEVEL=$(LOG_LEVEL) (info or debug)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make run AV_SIM_IP=192.168.10.128"
 	@echo "  make run-prius AV_SIM_IP=127.0.0.1  # Host av-simulation on the default UDP ports"
+	@echo "  make run-prius LINUX_PLAYER_IP=127.0.0.1  # Host Linux Player receives the six camera RTP streams"
 	@echo "  make run AV_SIM_IP=192.168.10.128 LOG_LEVEL=debug  # Detailed UDP bridge tracing"
 	@echo "  make run USE_VNC=false  # No GUI"
 	@echo ""
@@ -106,7 +110,7 @@ run: check-image
 run-inspection: run
 
 run-prius: check-image
-	@echo "Starting inspection world with prius_vehicle (Prius mode). GUI=$(if $(filter false,$(USE_VNC)),disabled,http://localhost:8080/vnc.html), UDP=0.0.0.0:$(AV_SIM_CMD_PORT)->$(DOCKER_AV_SIM_IP):$(AV_SIM_SENSOR_PORT), LOG_LEVEL=$(LOG_LEVEL)"
+	@echo "Starting inspection world with prius_vehicle (Prius mode). GUI=$(if $(filter false,$(USE_VNC)),disabled,http://localhost:8080/vnc.html), UDP=0.0.0.0:$(AV_SIM_CMD_PORT)->$(DOCKER_AV_SIM_IP):$(AV_SIM_SENSOR_PORT), VIDEO=$(DOCKER_LINUX_PLAYER_IP):1230-1235, LOG_LEVEL=$(LOG_LEVEL)"
 	docker run -it --rm \
 		--name $(CONTAINER_NAME)-prius \
 		--add-host=host.docker.internal:host-gateway \
@@ -121,7 +125,8 @@ run-prius: check-image
 				vehicle_model:=prius_vehicle \
 				vehicle_x:=-15.0 \
 				vehicle_y:=0.0 \
-				vehicle_z:=0.5 & \
+				vehicle_z:=0.5 \
+				linux_player_ip:=$(DOCKER_LINUX_PLAYER_IP) & \
 			sleep 10 && \
 			ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
 				av_sim_ip:=$(DOCKER_AV_SIM_IP) \
@@ -160,7 +165,7 @@ run-world: check-image
 		"
 
 run-world-prius: check-image
-	@echo "Starting offroad world desert_terrain with prius_vehicle (Prius mode). GUI=$(if $(filter false,$(USE_VNC)),disabled,http://localhost:8080/vnc.html), UDP=0.0.0.0:$(AV_SIM_CMD_PORT)->$(DOCKER_AV_SIM_IP):$(AV_SIM_SENSOR_PORT), LOG_LEVEL=$(LOG_LEVEL)"
+	@echo "Starting offroad world desert_terrain with prius_vehicle (Prius mode). GUI=$(if $(filter false,$(USE_VNC)),disabled,http://localhost:8080/vnc.html), UDP=0.0.0.0:$(AV_SIM_CMD_PORT)->$(DOCKER_AV_SIM_IP):$(AV_SIM_SENSOR_PORT), VIDEO=$(DOCKER_LINUX_PLAYER_IP):1230-1235, LOG_LEVEL=$(LOG_LEVEL)"
 	docker run -it --rm \
 		--name $(CONTAINER_NAME)-world-prius \
 		--add-host=host.docker.internal:host-gateway \
@@ -177,7 +182,8 @@ run-world-prius: check-image
 				vehicle_model:=prius_vehicle \
 				vehicle_x:=0.0 \
 				vehicle_y:=0.0 \
-				vehicle_z:=0.5 & \
+				vehicle_z:=0.5 \
+				linux_player_ip:=$(DOCKER_LINUX_PLAYER_IP) & \
 			sleep 10 && \
 			ros2 launch offroad_gazebo_integration udp_bridge.launch.py \
 				av_sim_ip:=$(DOCKER_AV_SIM_IP) \

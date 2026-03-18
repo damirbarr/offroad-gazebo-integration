@@ -17,6 +17,14 @@ class TestTopicContract(unittest.TestCase):
     UDP_BRIDGE_SOURCE = ROOT / 'src' / 'gazebo_adapter' / 'udp_bridge.py'
     TOPIC_RELAY_SOURCE = ROOT / 'src' / 'gazebo_adapter' / 'topic_relay.py'
     MAKEFILE = ROOT / 'Makefile'
+    CAMERA_TOPICS = (
+        '/camera/main/image_raw',
+        '/camera/left_side/image_raw',
+        '/camera/left_mirror/image_raw',
+        '/camera/right_side/image_raw',
+        '/camera/right_mirror/image_raw',
+        '/camera/rear/image_raw',
+    )
 
     @staticmethod
     def _normalized_topic(topic):
@@ -56,6 +64,17 @@ class TestTopicContract(unittest.TestCase):
                 self.assertIn("executable='topic_relay'", launch_text)
                 self.assertIn('period=13.0', launch_text)
 
+    def test_world_launches_bridge_prius_camera_topics_and_video_streamer(self):
+        for launch_path in (self.INSPECTION_LAUNCH, self.OFFROAD_LAUNCH):
+            with self.subTest(launch=launch_path.name):
+                launch_text = launch_path.read_text()
+                for topic in self.CAMERA_TOPICS:
+                    self.assertIn(topic, launch_text)
+                self.assertIn("executable='video_streamer'", launch_text)
+                self.assertIn('enable_video_streaming', launch_text)
+                self.assertIn('linux_player_ip', launch_text)
+                self.assertIn("prius_vehicle", launch_text)
+
     def test_udp_bridge_and_topic_relay_share_vehicle_contract(self):
         udp_bridge_text = self.UDP_BRIDGE_SOURCE.read_text()
         topic_relay_text = self.TOPIC_RELAY_SOURCE.read_text()
@@ -89,6 +108,7 @@ class TestTopicContract(unittest.TestCase):
         self.assertIn('report-topics:', makefile_text)
         self.assertIn('report-topics-prius:', makefile_text)
         self.assertIn('/workspace/src/offroad_gazebo_integration/test_bridge.sh', makefile_text)
+        self.assertIn('LINUX_PLAYER_IP', makefile_text)
 
 
 if __name__ == '__main__':

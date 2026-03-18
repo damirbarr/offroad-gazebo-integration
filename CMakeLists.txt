@@ -76,6 +76,10 @@ install(PROGRAMS src/gazebo_adapter/topic_relay.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME topic_relay
 )
+install(PROGRAMS src/gazebo_adapter/video_streamer.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME video_streamer
+)
 install(PROGRAMS src/gazebo_adapter/teleop_keyboard.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME teleop_keyboard
@@ -137,6 +141,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_prius_model test/test_prius_model.py)
   ament_add_pytest_test(test_topic_contract test/test_topic_contract.py)
   ament_add_pytest_test(test_terrain test/test_terrain.py)
+  ament_add_pytest_test(test_video_streaming test/test_video_streaming.py)
 endif()
 
 ament_package()

@@ -73,6 +73,34 @@
       state_publish_rate: 100.0       # Hz
       coordinate_frame: "base_link"
       world_frame: "odom"
+
+    # Linux Player video streaming configuration
+    video_streaming:
+      enabled: true
+      destination_host: "127.0.0.1"
+      bitrate_kbps: 1500
+      width: 1280
+      height: 720
+      fps: 15
+      cameras:
+        main:
+          topic: "/camera/main/image_raw"
+          port: 1230
+        left_side:
+          topic: "/camera/left_side/image_raw"
+          port: 1231
+        right_side:
+          topic: "/camera/right_side/image_raw"
+          port: 1232
+        rear:
+          topic: "/camera/rear/image_raw"
+          port: 1233
+        left_mirror:
+          topic: "/camera/left_mirror/image_raw"
+          port: 1234
+        right_mirror:
+          topic: "/camera/right_mirror/image_raw"
+          port: 1235
       
     # Performance tuning
     performance:

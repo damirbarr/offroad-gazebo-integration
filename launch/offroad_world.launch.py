@@ -14,8 +14,13 @@ from launch.actions import (
     SetEnvironmentVariable,
     TimerAction,
 )
-from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
-from launch.conditions import LaunchConfigurationEquals
+from launch.conditions import IfCondition, LaunchConfigurationEquals
+from launch.substitutions import (
+    EnvironmentVariable,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+    PythonExpression,
+)
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackagePrefix, FindPackageShare
 
@@ -72,6 +77,18 @@ def generate_launch_description():
         description='Vehicle spawn Z position'
     )
 
+    enable_video_streaming_arg = DeclareLaunchArgument(
+        'enable_video_streaming',
+        default_value='true',
+        description='Enable the Prius six-camera RTP streamer for Linux Player'
+    )
+
+    linux_player_ip_arg = DeclareLaunchArgument(
+        'linux_player_ip',
+        default_value='127.0.0.1',
+        description='Destination IP for Linux Player RTP camera streams'
+    )
+
     # Get configuration
     world_file_name = LaunchConfiguration('world_file')
     world_name = LaunchConfiguration('world_name')
@@ -81,6 +98,8 @@ def generate_launch_description():
     vehicle_x = LaunchConfiguration('vehicle_x')
     vehicle_y = LaunchConfiguration('vehicle_y')
     vehicle_z = LaunchConfiguration('vehicle_z')
+    enable_video_streaming = LaunchConfiguration('enable_video_streaming')
+    linux_player_ip = LaunchConfiguration('linux_player_ip')
 
     # Package paths
     pkg_share = FindPackageShare('offroad_gazebo_integration')
@@ -88,11 +107,25 @@ def generate_launch_description():
         FindPackagePrefix('offroad_gazebo_integration'),
         'lib',
     ])
+    config_file = PathJoinSubstitution([
+        pkg_share,
+        'config',
+        'simulation.yaml',
+    ])
     world_path = PathJoinSubstitution([
         pkg_share,
         'worlds',
         world_file_name,
     ])
+
+    camera_bridge_arguments = [
+        '/camera/main/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+        '/camera/left_side/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+        '/camera/left_mirror/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+        '/camera/right_side/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+        '/camera/right_mirror/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+        '/camera/rear/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+    ]
 
     ignition_plugin_path = SetEnvironmentVariable(
         'IGN_GAZEBO_SYSTEM_PLUGIN_PATH',
@@ -135,7 +168,7 @@ def generate_launch_description():
                     '/imu/data@sensor_msgs/msg/Imu[ignition.msgs.IMU',
                     '/mavros/global_position/global@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
                     '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
-                ],
+                ] + camera_bridge_arguments,
                 output='screen',
                 parameters=[{'use_sim_time': use_sim_time}],
                 respawn=True
@@ -210,6 +243,34 @@ def generate_launch_description():
         ]
     )
 
+    video_streamer = TimerAction(
+        period=12.0,
+        actions=[
+            Node(
+                package='offroad_gazebo_integration',
+                executable='video_streamer',
+                output='screen',
+                condition=IfCondition(
+                    PythonExpression([
+                        "'",
+                        vehicle_model,
+                        "' == 'prius_vehicle' and '",
+                        enable_video_streaming,
+                        "'.lower() in ['true', '1', 'yes']",
+                    ])
+                ),
+                parameters=[
+                    config_file,
+                    {
+                        'use_sim_time': use_sim_time,
+                        'video_streaming.enabled': enable_video_streaming,
+                        'video_streaming.destination_host': linux_player_ip,
+                    }
+                ]
+            )
+        ]
+    )
+
     return LaunchDescription([
         world_file_arg,
         world_name_arg,
@@ -219,6 +280,8 @@ def generate_launch_description():
         vehicle_x_arg,
         vehicle_y_arg,
         vehicle_z_arg,
+        enable_video_streaming_arg,
+        linux_player_ip_arg,
         ignition_plugin_path,
         gz_plugin_path,
         gazebo_server,
@@ -228,4 +291,5 @@ def generate_launch_description():
         sensor_converter,
         laserscan_converter,
         topic_relay,
+        video_streamer,
     ])

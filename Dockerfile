@@ -11,8 +11,16 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     pkg-config \
+    python3-gi \
+    python3-gst-1.0 \
     python3-pip \
     python3-colcon-common-extensions \
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
     ros-humble-ros-gz-bridge \
     ros-humble-ros-gz-sim \
     xvfb \

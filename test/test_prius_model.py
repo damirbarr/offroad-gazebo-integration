@@ -29,6 +29,18 @@ class TestPriusModel(unittest.TestCase):
     )
     EXPECTED_VISUAL_POSE = '0 0 0 0 -1.5708 0'
     EXPECTED_WHEEL_JOINT_AXIS = '0 0 1'
+    CAMERA_EXPECTATIONS = {
+        'main_camera': ('1.20 0.00 1.45 0 0 0.0000', '/camera/main/image_raw'),
+        'left_side_camera': ('0.25 0.88 1.35 0 0 1.5708', '/camera/left_side/image_raw'),
+        'left_mirror_camera': ('0.95 0.93 1.32 0 0 2.3562', '/camera/left_mirror/image_raw'),
+        'right_side_camera': ('0.25 -0.88 1.35 0 0 -1.5708', '/camera/right_side/image_raw'),
+        'right_mirror_camera': ('0.95 -0.93 1.32 0 0 -2.3562', '/camera/right_mirror/image_raw'),
+        'rear_camera': ('-1.95 0.00 1.40 0 0 3.1416', '/camera/rear/image_raw'),
+    }
+    EXPECTED_CAMERA_UPDATE_RATE = '15'
+    EXPECTED_CAMERA_RESOLUTION = ('1280', '720')
+    EXPECTED_CAMERA_FOV = '1.57'
+    EXPECTED_CAMERA_FORMAT = 'R8G8B8'
 
     @classmethod
     def setUpClass(cls):
@@ -66,6 +78,19 @@ class TestPriusModel(unittest.TestCase):
             ".//plugin[@name='ignition::gazebo::systems::AckermannSteering']"
         )
         self.assertIsNone(plugin)
+
+    def test_prius_model_has_expected_camera_topics_and_poses(self):
+        for sensor_name, (expected_pose, expected_topic) in self.CAMERA_EXPECTATIONS.items():
+            with self.subTest(sensor_name=sensor_name):
+                sensor = self.root.find(f".//sensor[@name='{sensor_name}']")
+                self.assertIsNotNone(sensor)
+                self.assertEqual(sensor.findtext('pose'), expected_pose)
+                self.assertEqual(sensor.findtext('topic'), expected_topic)
+                self.assertEqual(sensor.findtext('update_rate'), self.EXPECTED_CAMERA_UPDATE_RATE)
+                self.assertEqual(sensor.findtext('camera/horizontal_fov'), self.EXPECTED_CAMERA_FOV)
+                self.assertEqual(sensor.findtext('camera/image/width'), self.EXPECTED_CAMERA_RESOLUTION[0])
+                self.assertEqual(sensor.findtext('camera/image/height'), self.EXPECTED_CAMERA_RESOLUTION[1])
+                self.assertEqual(sensor.findtext('camera/image/format'), self.EXPECTED_CAMERA_FORMAT)
 
 
 if __name__ == '__main__':

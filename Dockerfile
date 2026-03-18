@@ -15,10 +15,12 @@ RUN apt-get update && apt-get install -y \
     python3-colcon-common-extensions \
     ros-humble-ros-gz-bridge \
     ros-humble-ros-gz-sim \
+    ros-humble-rviz2 \
     xvfb \
     x11vnc \
     novnc \
     websockify \
+    fluxbox \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Gazebo Fortress (compatible with ROS Humble)

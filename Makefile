@@ -1,7 +1,7 @@
 # Makefile for offroad-gazebo-integration
 # Quick start for Gazebo off-road simulation with av-simulation integration
 
-.PHONY: help build check-image run run-inspection run-prius run-world run-world-prius report-topics report-topics-prius clean stop check-avsim
+.PHONY: help build check-image run run-inspection run-prius run-world run-world-prius rviz report-topics report-topics-prius clean stop check-avsim
 
 # Docker image name
 IMAGE_NAME := offroad-gazebo-integration
@@ -46,6 +46,7 @@ help:
 	@echo "  make run-world-prius  - Run offroad world with Prius drive-by-wire vehicle"
 	@echo "  make report-topics    - Launch inspection_robot headless and print the published topic contract"
 	@echo "  make report-topics-prius - Launch prius_vehicle headless and print the published topic contract"
+	@echo "  make rviz            - Launch RViz to view LiDAR data (requires simulation running, e.g. make run)"
 	@echo "  make clean            - Remove Docker image"
 	@echo "  make stop             - Stop running container"
 	@echo ""
@@ -63,6 +64,8 @@ help:
 	@echo "  make run-prius AV_SIM_IP=127.0.0.1  # Host av-simulation on the default UDP ports"
 	@echo "  make run AV_SIM_IP=192.168.10.128 LOG_LEVEL=debug  # Detailed UDP bridge tracing"
 	@echo "  make run USE_VNC=false  # No GUI"
+	@echo "  make rviz               # View LiDAR in RViz (run 'make run' first in another terminal)"
+	@echo "  make rviz RVIZ_CONTAINER=gazebo-sim-prius  # RViz with run-prius container"
 	@echo ""
 
 build:
@@ -186,6 +189,22 @@ run-world-prius: check-image
 				drive_mode:=prius \
 				log_level:=$(LOG_LEVEL) \
 		"
+
+# RViz: run inside a simulation container to view LiDAR (default: gazebo-sim from make run)
+RVIZ_CONTAINER ?= $(CONTAINER_NAME)
+
+rviz:
+	@docker ps --format '{{.Names}}' | grep -qE '^$(RVIZ_CONTAINER)$$' || { \
+		echo "Container $(RVIZ_CONTAINER) is not running. Start simulation first (e.g. make run)."; \
+		exit 1; \
+	}
+	@echo "Launching RViz for LiDAR visualization (GUI at http://localhost:8080/vnc.html)..."
+	docker exec -it -e DISPLAY=:99 $(RVIZ_CONTAINER) bash -c " \
+		source /opt/ros/humble/setup.bash && \
+		source /workspace/install/setup.bash && \
+		ros2 run rviz2 rviz2 -d /workspace/install/offroad_gazebo_integration/share/offroad_gazebo_integration/config/lidar.rviz \
+		--ros-args -p use_sim_time:=true \
+	"
 
 report-topics: check-image
 	@echo "Reporting published topics for inspection_robot"

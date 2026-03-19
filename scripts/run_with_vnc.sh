@@ -10,12 +10,16 @@ NOVNC_PORT=8080
 Xvfb :99 -screen 0 1920x1080x24 &
 sleep 3
 
+# Start window manager (enables maximize, resize, proper window placement)
+fluxbox &
+sleep 1
+
 # Start VNC server (connect to virtual display)
 x11vnc -display :99 -rfbport $VNC_PORT -forever -shared -nonap -bg
 sleep 1
 
 # Start noVNC (websockify proxies VNC to browser)
-websockify -v --web=/usr/share/novnc $NOVNC_PORT localhost:$VNC_PORT &
+websockify --web=/usr/share/novnc $NOVNC_PORT localhost:$VNC_PORT &
 sleep 1
 
 echo ""

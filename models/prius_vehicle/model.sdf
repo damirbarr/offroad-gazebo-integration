@@ -1,0 +1,397 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="prius_vehicle">
+    <self_collide>false</self_collide>
+    <static>false</static>
+
+    <link name="base_link">
+      <pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <mass>1356.0</mass>
+        <inertia>
+          <ixx>591.30846112</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>2581.13354740</iyy>
+          <iyz>0</iyz>
+          <izz>2681.95008628</izz>
+        </inertia>
+      </inertial>
+
+      <visual name="body_visual">
+        <pose>0 0 0 0 0 1.5708</pose>
+        <geometry>
+          <mesh>
+            <uri>model://prius_vehicle/meshes/hybrid_body.obj</uri>
+            <scale>0.01 0.01 0.01</scale>
+          </mesh>
+        </geometry>
+      </visual>
+
+      <collision name="body_collision">
+        <pose>-0.05 0 0.625 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>2.1 1.7526 0.95</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <collision name="front_bumper_collision">
+        <pose>2.0 0 0.458488 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.48 1.337282 0.566691</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <collision name="rear_bumper_collision">
+        <pose>-2.054454 0 0.577870 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.512093 1.781650 0.581427</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <sensor name="gps_sensor" type="navsat">
+        <pose>0 0 1.45 0 0 0</pose>
+        <always_on>true</always_on>
+        <update_rate>10</update_rate>
+        <topic>/mavros/global_position/global</topic>
+      </sensor>
+
+      <sensor name="imu_sensor" type="imu">
+        <pose>0 0 1.2 0 0 0</pose>
+        <always_on>true</always_on>
+        <update_rate>100</update_rate>
+        <topic>/imu/data</topic>
+      </sensor>
+
+      <sensor name="lidar_sensor" type="gpu_lidar">
+        <pose>0 0 1.55 0 0 0</pose>
+        <topic>/lidar</topic>
+        <update_rate>10</update_rate>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>640</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159</min_angle>
+              <max_angle>3.14159</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>16</samples>
+              <resolution>1</resolution>
+              <min_angle>-0.261799</min_angle>
+              <max_angle>0.261799</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>60.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </lidar>
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+        <ignition_frame_id>velodyne</ignition_frame_id>
+      </sensor>
+    </link>
+
+    <link name="front_left_steering">
+      <pose>1.41 0.767 0.31265 0 0 0</pose>
+      <inertial>
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.004</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.004</iyy>
+          <iyz>0</iyz>
+          <izz>0.004</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <link name="front_right_steering">
+      <pose>1.41 -0.767 0.31265 0 0 0</pose>
+      <inertial>
+        <mass>1.0</mass>
+        <inertia>
+          <ixx>0.004</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.004</iyy>
+          <iyz>0</iyz>
+          <izz>0.004</izz>
+        </inertia>
+      </inertial>
+    </link>
+
+    <link name="front_left_wheel">
+      <pose>1.41 0.767 0.31265 -1.5707 0 0</pose>
+      <inertial>
+        <mass>11.0</mass>
+        <inertia>
+          <ixx>0.58631238</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.33552910</iyy>
+          <iyz>0</iyz>
+          <izz>0.33552910</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.31265</radius>
+            <length>0.22</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.9</mu>
+              <mu2>0.9</mu2>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+      <visual name="visual">
+        <pose>0 0 0 0 -1.5708 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://prius_vehicle/meshes/wheel.obj</uri>
+            <scale>0.01 0.01 0.01</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="front_right_wheel">
+      <pose>1.41 -0.767 0.31265 -1.5707 0 0</pose>
+      <inertial>
+        <mass>11.0</mass>
+        <inertia>
+          <ixx>0.58631238</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.33552910</iyy>
+          <iyz>0</iyz>
+          <izz>0.33552910</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.31265</radius>
+            <length>0.22</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.9</mu>
+              <mu2>0.9</mu2>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+      <visual name="visual">
+        <pose>0 0 0 0 -1.5708 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://prius_vehicle/meshes/wheel.obj</uri>
+            <scale>0.01 0.01 0.01</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="rear_left_wheel">
+      <pose>-1.45 0.793 0.31265 -1.5707 0 0</pose>
+      <inertial>
+        <mass>11.0</mass>
+        <inertia>
+          <ixx>0.58631238</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.33552910</iyy>
+          <iyz>0</iyz>
+          <izz>0.33552910</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.31265</radius>
+            <length>0.22</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.9</mu>
+              <mu2>0.9</mu2>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+      <visual name="visual">
+        <pose>0 0 0 0 -1.5708 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://prius_vehicle/meshes/wheel.obj</uri>
+            <scale>0.01 0.01 0.01</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="rear_right_wheel">
+      <pose>-1.45 -0.793 0.31265 -1.5707 0 0</pose>
+      <inertial>
+        <mass>11.0</mass>
+        <inertia>
+          <ixx>0.58631238</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.33552910</iyy>
+          <iyz>0</iyz>
+          <izz>0.33552910</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <cylinder>
+            <radius>0.31265</radius>
+            <length>0.22</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.9</mu>
+              <mu2>0.9</mu2>
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+      <visual name="visual">
+        <pose>0 0 0 0 -1.5708 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://prius_vehicle/meshes/wheel.obj</uri>
+            <scale>0.01 0.01 0.01</scale>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <joint name="front_left_steer_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>front_left_steering</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-0.6458</lower>
+          <upper>0.6458</upper>
+        </limit>
+        <dynamics>
+          <damping>1.0</damping>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <joint name="front_right_steer_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>front_right_steering</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-0.6458</lower>
+          <upper>0.6458</upper>
+        </limit>
+        <dynamics>
+          <damping>1.0</damping>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <joint name="front_left_wheel_joint" type="revolute">
+      <parent>front_left_steering</parent>
+      <child>front_left_wheel</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+      </axis>
+    </joint>
+
+    <joint name="front_right_wheel_joint" type="revolute">
+      <parent>front_right_steering</parent>
+      <child>front_right_wheel</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+      </axis>
+    </joint>
+
+    <joint name="rear_left_wheel_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>rear_left_wheel</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+      </axis>
+    </joint>
+
+    <joint name="rear_right_wheel_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>rear_right_wheel</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1e16</lower>
+          <upper>1e16</upper>
+        </limit>
+      </axis>
+    </joint>
+
+    <plugin filename="PriusDriveSystem" name="offroad_gazebo_integration::PriusDriveSystem">
+      <drive_topic>/cmd_drive</drive_topic>
+      <gear_topic>/cmd_gear</gear_topic>
+      <wheel_base>2.86</wheel_base>
+      <front_track_width>1.534</front_track_width>
+      <wheel_radius>0.31265</wheel_radius>
+      <max_steer>0.6458</max_steer>
+      <max_speed>10.0</max_speed>
+      <front_torque>859.4004393000001</front_torque>
+      <back_torque>0.0</back_torque>
+      <front_brake_torque>1031.28052716</front_brake_torque>
+      <back_brake_torque>687.5203514400001</back_brake_torque>
+      <flwheel_steering_p_gain>1e4</flwheel_steering_p_gain>
+      <flwheel_steering_d_gain>3e2</flwheel_steering_d_gain>
+      <drive_speed_gain>125.0</drive_speed_gain>
+      <brake_damping_gain>800.0</brake_damping_gain>
+      <steering_force_limit>2000.0</steering_force_limit>
+    </plugin>
+
+    <plugin filename="ignition-gazebo-odometry-publisher-system" name="ignition::gazebo::systems::OdometryPublisher">
+      <odom_topic>/odom</odom_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>50</odom_publish_frequency>
+    </plugin>
+  </model>
+</sdf>

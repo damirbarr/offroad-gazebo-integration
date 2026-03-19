@@ -35,10 +35,15 @@
   <depend>ros_gz_bridge</depend>
   <depend>ros_gz_sim</depend>
   <depend>ros_gz_interfaces</depend>
+  <build_depend>ignition-gazebo6</build_depend>
+  <build_depend>ignition-msgs8</build_depend>
+  <build_depend>ignition-plugin1</build_depend>
+  <build_depend>ignition-transport11</build_depend>
   
   <!-- Launch dependencies -->
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>launch</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
   
   <!-- Python dependencies -->
   <exec_depend>python3-numpy</exec_depend>

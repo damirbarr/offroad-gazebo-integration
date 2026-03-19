@@ -9,6 +9,11 @@ endif()
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
+find_package(ignition-common4 REQUIRED)
+find_package(ignition-gazebo6 REQUIRED)
+find_package(ignition-msgs8 REQUIRED)
+find_package(ignition-plugin1 REQUIRED COMPONENTS register)
+find_package(ignition-transport11 REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -21,6 +26,20 @@ find_package(ros_gz_sim REQUIRED)
 
 # Python package installation
 ament_python_install_package(${PROJECT_NAME})
+
+# Gazebo Sim Prius controller plugin
+add_library(PriusDriveSystem SHARED
+  src/prius_drive_system.cpp
+)
+target_compile_features(PriusDriveSystem PUBLIC cxx_std_17)
+target_link_libraries(PriusDriveSystem
+  PRIVATE
+    ignition-common4::ignition-common4
+    ignition-gazebo6::ignition-gazebo6
+    ignition-msgs8::ignition-msgs8
+    ignition-plugin1::ignition-plugin1
+    ignition-transport11::core
+)
 
 # Install Python modules
 install(DIRECTORY src/gazebo_adapter
@@ -53,9 +72,17 @@ install(PROGRAMS src/gazebo_adapter/laserscan_to_pointcloud.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME laserscan_to_pointcloud
 )
+install(PROGRAMS src/gazebo_adapter/topic_relay.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME topic_relay
+)
 install(PROGRAMS src/gazebo_adapter/teleop_keyboard.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME teleop_keyboard
+)
+
+install(TARGETS PriusDriveSystem
+  LIBRARY DESTINATION lib
 )
 
 # Install launch files
@@ -107,6 +134,8 @@ if(BUILD_TESTING)
   
   # Python tests
   ament_add_pytest_test(test_adapter test/test_adapter.py)
+  ament_add_pytest_test(test_prius_model test/test_prius_model.py)
+  ament_add_pytest_test(test_topic_contract test/test_topic_contract.py)
   ament_add_pytest_test(test_terrain test/test_terrain.py)
 endif()
 

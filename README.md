@@ -22,7 +22,9 @@ cd /path/to/offroad-gazebo-integration
 make build
 
 # 3. Run Gazebo simulation
-make run
+make run        # inspection_robot tank mode
+# or
+make run-prius AV_SIM_IP=127.0.0.1  # Prius drive-by-wire mode, av-simulation on host
 
 # 4. In another terminal: Run av-simulation
 cd /path/to/av-simulation
@@ -36,6 +38,10 @@ cd /path/to/av-simulation
 ## Overview
 
 This package provides off-road terrain simulation capabilities for autonomous vehicle development using Gazebo Sim integrated with the Ottopia av-simulation framework via UDP communication.
+
+It supports two vehicle paths on the same external UDP and ROS topic contract:
+- `inspection_robot` in legacy tank mode
+- `prius_vehicle` in gear-aware Prius drive mode
 
 ## Why Gazebo Sim?
 
@@ -136,15 +142,19 @@ cd offroad-gazebo-integration
 make build
 
 # Run simulation
-make run
+make run        # inspection_robot tank mode
+# or
+make run-prius  # Prius drive-by-wire mode
 ```
 
 **Available Make targets:**
 - `make help` - Show all commands
 - `make build` - Build Docker image
-- `make run` - Run inspection world + UDP bridge (recommended)
+- `make run` - Run inspection world + UDP bridge with `inspection_robot` tank mode
 - `make run-inspection` - Same as `make run` (alias)
-- `make run-world` - Run offroad world (desert_terrain) + UDP bridge (same topics as inspection)
+- `make run-prius` - Run inspection world + UDP bridge with `prius_vehicle` Prius drive mode
+- `make run-world` - Run offroad world (desert_terrain) + UDP bridge with `inspection_robot`
+- `make run-world-prius` - Run offroad world (desert_terrain) + UDP bridge with `prius_vehicle`
 - `make clean` - Remove Docker image
 - `make stop` - Stop running container
 
@@ -168,6 +178,13 @@ sudo apt install ros-humble-ros-gz-bridge ros-humble-ros-gz-sim
 
 # Build tools
 sudo apt install python3-colcon-common-extensions
+
+# Gazebo Sim plugin development headers for the Prius controller
+sudo apt install \
+  libignition-gazebo6-dev \
+  libignition-msgs8-dev \
+  libignition-plugin1-dev \
+  libignition-transport11-dev
 
 # Python dependencies
 pip3 install numpy pillow pyyaml
@@ -196,13 +213,21 @@ source install/setup.bash
 ### Basic Simulation
 
 ```bash
-# Terminal 1: Launch Gazebo inspection world + UDP bridge (or use: make run)
-ros2 launch offroad_gazebo_integration inspection_world.launch.py
+# Terminal 1: Launch Gazebo inspection world
+ros2 launch offroad_gazebo_integration inspection_world.launch.py vehicle_model:=inspection_robot
+# or
+ros2 launch offroad_gazebo_integration inspection_world.launch.py \
+  vehicle_model:=prius_vehicle vehicle_x:=-15.0 vehicle_y:=0.0 vehicle_z:=0.5
 
-# Terminal 2: Launch av-simulation with UDP gazebo adapter
+# Terminal 2: Launch UDP bridge
+ros2 launch offroad_gazebo_integration udp_bridge.launch.py drive_mode:=tank
+# or
+ros2 launch offroad_gazebo_integration udp_bridge.launch.py drive_mode:=prius
+
+# Terminal 3: Launch av-simulation with UDP gazebo adapter
 ros2 launch av_simulation simulation.launch.py adapter:=udp_gazebo
 
-# Terminal 3: Run your autonomy stack
+# Terminal 4: Run your autonomy stack
 ros2 launch your_autonomy your_stack.launch.py
 ```
 
@@ -218,16 +243,29 @@ Pre-configured worlds in `worlds/`:
 
 ### ROS Topics
 
-**Published by simulator:**
-- `/vehicle/odom` (nav_msgs/Odometry) - Vehicle odometry
-- `/vehicle/imu` (sensor_msgs/Imu) - IMU data
-- `/vehicle/gps` (sensor_msgs/NavSatFix) - GPS position
-- `/vehicle/lidar/points` (sensor_msgs/PointCloud2) - LIDAR
-- `/vehicle/camera/image_raw` (sensor_msgs/Image) - Camera
+**Raw simulator topics:**
+- `/odom` (nav_msgs/Odometry) - Vehicle odometry
+- `/imu/data` (sensor_msgs/Imu) - IMU data
+- `/mavros/global_position/global` (sensor_msgs/NavSatFix) - GPS position
+- `/mavros/global_position/compass_hdg` (std_msgs/Float64) - Heading derived from IMU
+- `/mavros/global_position/raw/gps_vel` (geometry_msgs/TwistStamped) - GPS velocity placeholder
+- `/velodyne_points` (sensor_msgs/PointCloud2) - 3D LiDAR point cloud (bridged directly from Gazebo)
+
+**Compatibility aliases published alongside the raw topics:**
+- `/vehicle/odom` (nav_msgs/Odometry) - Vehicle odometry alias
+- `/ego/odometry` (nav_msgs/Odometry) - `ottonomy`-friendly odometry alias
+- `/vehicle/imu` (sensor_msgs/Imu) - IMU alias
+- `/vehicle/gps` (sensor_msgs/NavSatFix) - GPS alias
+- `/vehicle/lidar/points` (sensor_msgs/PointCloud2) - Point cloud alias
 
 **Subscribed by simulator:**
 - `/vehicle/cmd_vel` (geometry_msgs/Twist) - Velocity commands
-- `/vehicle/cmd_steering` (std_msgs/Float64) - Steering angle
+- `/vehicle/cmd_drive` (geometry_msgs/Vector3) - Prius throttle / brake / steering commands
+- `/vehicle/cmd_gear` (std_msgs/Int32) - Prius gear commands using Ottopia gear values
+
+To print the current published topic contract end-to-end:
+- `make report-topics` - `inspection_robot`
+- `make report-topics-prius` - `prius_vehicle`
 
 ### Parameters
 

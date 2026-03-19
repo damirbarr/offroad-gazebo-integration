@@ -7,11 +7,17 @@ featuring a water table and inspection geometry.
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, TimerAction, OpaqueFunction
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    OpaqueFunction,
+    SetEnvironmentVariable,
+    TimerAction,
+)
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch.conditions import LaunchConfigurationEquals
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
+from launch_ros.substitutions import FindPackagePrefix, FindPackageShare
 
 
 def generate_launch_description():
@@ -33,13 +39,13 @@ def generate_launch_description():
     vehicle_model_arg = DeclareLaunchArgument(
         'vehicle_model',
         default_value='inspection_robot',
-        description='Vehicle model to spawn (inspection_robot, simple_boat, or custom model)'
+        description='Vehicle model to spawn (inspection_robot, prius_vehicle, simple_boat, or custom model)'
     )
     
     vehicle_x_arg = DeclareLaunchArgument(
         'vehicle_x',
-        default_value='0.0',
-        description='Vehicle spawn X position'
+        default_value='-15.0',
+        description='Vehicle spawn X position (default keeps land vehicles clear of the water table)'
     )
     
     vehicle_y_arg = DeclareLaunchArgument(
@@ -50,8 +56,8 @@ def generate_launch_description():
     
     vehicle_z_arg = DeclareLaunchArgument(
         'vehicle_z',
-        default_value='2.0',
-        description='Vehicle spawn Z position (higher to ensure it lands on platform)'
+        default_value='0.5',
+        description='Vehicle spawn Z position above the ground plane'
     )
     
     # Get configuration
@@ -64,11 +70,25 @@ def generate_launch_description():
     
     # Package paths
     pkg_share = FindPackageShare('offroad_gazebo_integration')
+    plugin_path = PathJoinSubstitution([
+        FindPackagePrefix('offroad_gazebo_integration'),
+        'lib',
+    ])
     world_file = PathJoinSubstitution([
         pkg_share,
         'worlds',
         'inspection_world.world'
     ])
+
+    ignition_plugin_path = SetEnvironmentVariable(
+        'IGN_GAZEBO_SYSTEM_PLUGIN_PATH',
+        [plugin_path, ':', EnvironmentVariable('IGN_GAZEBO_SYSTEM_PLUGIN_PATH', default_value='')],
+    )
+
+    gz_plugin_path = SetEnvironmentVariable(
+        'GZ_SIM_SYSTEM_PLUGIN_PATH',
+        [plugin_path, ':', EnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', default_value='')],
+    )
     
     # Gazebo server (always runs)
     gazebo_server = ExecuteProcess(
@@ -86,32 +106,32 @@ def generate_launch_description():
     )
     
     # ROS-Gazebo bridge (delayed to start after robot spawns)
-    bridge_node = TimerAction(
-        period=10.0,
-        actions=[
-            Node(
-                package='ros_gz_bridge',
-                executable='parameter_bridge',
-                arguments=[
-                    # Clock
-                    '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
-                    # Robot command (differential drive)  
-                    '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
-                    # Odometry
-                    '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
-                    # IMU (for heading conversion)
-                    '/imu/data@sensor_msgs/msg/Imu[ignition.msgs.IMU',
-                    # GPS
-                    '/mavros/global_position/global@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
-                    # LiDAR - keep as intermediate topic
-                    '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
-                ],
-                output='screen',
-                parameters=[{'use_sim_time': use_sim_time}],
-                respawn=True
+    # Config chosen by vehicle_model: inspection_robot uses lidar_link, prius/ackermann use base_link
+    def make_bridge_node(context):
+        from ament_index_python.packages import get_package_share_directory
+        import os
+        model = context.launch_configurations.get('vehicle_model', 'inspection_robot')
+        config_name = 'ros_gz_bridge_prius.yaml' if model in ('prius_vehicle', 'ackermann_vehicle') else 'ros_gz_bridge.yaml'
+        config_path = os.path.join(get_package_share_directory('offroad_gazebo_integration'), 'config', config_name)
+        use_sim_val = context.launch_configurations.get('use_sim_time', 'true')
+        use_sim_time_bool = use_sim_val in ('true', '1', 'yes')
+        return [
+            TimerAction(
+                period=10.0,
+                actions=[
+                    Node(
+                        package='ros_gz_bridge',
+                        executable='parameter_bridge',
+                        arguments=['--ros-args', '-p', f'config_file:={config_path}'],
+                        output='screen',
+                        parameters=[{'use_sim_time': use_sim_time_bool}],
+                        respawn=True
+                    )
+                ]
             )
         ]
-    )
+
+    bridge_node = OpaqueFunction(function=make_bridge_node)
     
     # Spawn vehicle function
     def spawn_vehicle_func(context):
@@ -154,18 +174,47 @@ def generate_launch_description():
         ]
     )
     
-    # LaserScan to PointCloud2 converter
-    laserscan_converter = TimerAction(
-        period=12.0,
+    # Topic relay for stable /vehicle/* and /ego/odometry aliases
+    topic_relay = TimerAction(
+        period=13.0,
         actions=[
             Node(
                 package='offroad_gazebo_integration',
-                executable='laserscan_to_pointcloud',
+                executable='topic_relay',
                 output='screen',
                 parameters=[{'use_sim_time': use_sim_time}]
             )
         ]
     )
+
+    # Static TF: base_link -> velodyne (lidar frame for RViz)
+    # Pose varies by vehicle: inspection (0.3,0,0.35), prius (0,0,1.55), ackermann (0,0,0.5)
+    def make_static_tf(context):
+        model = context.launch_configurations.get('vehicle_model', 'inspection_robot')
+        poses = {
+            'inspection_robot': ('0.3', '0', '0.35'),
+            'prius_vehicle': ('0', '0', '1.55'),
+            'ackermann_vehicle': ('0', '0', '0.5'),
+        }
+        x, y, z = poses.get(model, poses['inspection_robot'])
+        use_sim_val = context.launch_configurations.get('use_sim_time', 'true')
+        use_sim_time_bool = use_sim_val in ('true', '1', 'yes')
+        return [
+            TimerAction(
+                period=9.0,
+                actions=[
+                    Node(
+                        package='tf2_ros',
+                        executable='static_transform_publisher',
+                        name='base_link_to_velodyne',
+                        arguments=[x, y, z, '0', '0', '0', 'base_link', 'velodyne'],
+                        parameters=[{'use_sim_time': use_sim_time_bool}]
+                    )
+                ]
+            )
+        ]
+
+    static_tf = OpaqueFunction(function=make_static_tf)
     
     return LaunchDescription([
         # Arguments
@@ -175,12 +224,15 @@ def generate_launch_description():
         vehicle_x_arg,
         vehicle_y_arg,
         vehicle_z_arg,
+        ignition_plugin_path,
+        gz_plugin_path,
         
         # Nodes and processes
         gazebo_server,
         gazebo_client,
-        bridge_node,
         spawn_vehicle,
+        static_tf,
+        bridge_node,
         sensor_converter,
-        laserscan_converter,
+        topic_relay,
     ])

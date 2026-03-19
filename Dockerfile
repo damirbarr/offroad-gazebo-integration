@@ -10,21 +10,30 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     curl \
     git \
+    pkg-config \
     python3-pip \
     python3-colcon-common-extensions \
     ros-humble-ros-gz-bridge \
     ros-humble-ros-gz-sim \
+    ros-humble-rviz2 \
     xvfb \
     x11vnc \
     novnc \
     websockify \
+    fluxbox \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Gazebo Fortress (compatible with ROS Humble)
 RUN wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null && \
     apt-get update && \
-    apt-get install -y ignition-fortress && \
+    apt-get install -y \
+    ignition-fortress \
+    libignition-gazebo6-dev \
+    libignition-msgs8-dev \
+    libignition-plugin-dev \
+    libignition-transport11-dev \
+    && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
@@ -55,6 +64,9 @@ set -e\n\
 source /opt/ros/humble/setup.bash\n\
 source /workspace/install/setup.bash\n\
 export IGN_GAZEBO_RESOURCE_PATH=/workspace/install/offroad_gazebo_integration/share/offroad_gazebo_integration/models:${IGN_GAZEBO_RESOURCE_PATH}\n\
+export GZ_SIM_RESOURCE_PATH=/workspace/install/offroad_gazebo_integration/share/offroad_gazebo_integration/models:${GZ_SIM_RESOURCE_PATH}\n\
+export IGN_GAZEBO_SYSTEM_PLUGIN_PATH=/workspace/install/offroad_gazebo_integration/lib:${IGN_GAZEBO_SYSTEM_PLUGIN_PATH}\n\
+export GZ_SIM_SYSTEM_PLUGIN_PATH=/workspace/install/offroad_gazebo_integration/lib:${GZ_SIM_SYSTEM_PLUGIN_PATH}\n\
 exec "$@"' > /entrypoint.sh && \
     chmod +x /entrypoint.sh
 

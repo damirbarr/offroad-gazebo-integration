@@ -106,34 +106,32 @@ def generate_launch_description():
     )
     
     # ROS-Gazebo bridge (delayed to start after robot spawns)
-    bridge_node = TimerAction(
-        period=10.0,
-        actions=[
-            Node(
-                package='ros_gz_bridge',
-                executable='parameter_bridge',
-                arguments=[
-                    # Clock
-                    '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
-                    # Vehicle command topic shared by tank and Ackermann models
-                    '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
-                    '/cmd_drive@geometry_msgs/msg/Vector3]ignition.msgs.Vector3d',
-                    '/cmd_gear@std_msgs/msg/Int32]ignition.msgs.Int32',
-                    # Odometry
-                    '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
-                    # IMU (for heading conversion)
-                    '/imu/data@sensor_msgs/msg/Imu[ignition.msgs.IMU',
-                    # GPS
-                    '/mavros/global_position/global@sensor_msgs/msg/NavSatFix[ignition.msgs.NavSat',
-                    # LiDAR - keep as intermediate topic
-                    '/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
-                ],
-                output='screen',
-                parameters=[{'use_sim_time': use_sim_time}],
-                respawn=True
+    # Config chosen by vehicle_model: inspection_robot uses lidar_link, prius/ackermann use base_link
+    def make_bridge_node(context):
+        from ament_index_python.packages import get_package_share_directory
+        import os
+        model = context.launch_configurations.get('vehicle_model', 'inspection_robot')
+        config_name = 'ros_gz_bridge_prius.yaml' if model in ('prius_vehicle', 'ackermann_vehicle') else 'ros_gz_bridge.yaml'
+        config_path = os.path.join(get_package_share_directory('offroad_gazebo_integration'), 'config', config_name)
+        use_sim_val = context.launch_configurations.get('use_sim_time', 'true')
+        use_sim_time_bool = use_sim_val in ('true', '1', 'yes')
+        return [
+            TimerAction(
+                period=10.0,
+                actions=[
+                    Node(
+                        package='ros_gz_bridge',
+                        executable='parameter_bridge',
+                        arguments=['--ros-args', '-p', f'config_file:={config_path}'],
+                        output='screen',
+                        parameters=[{'use_sim_time': use_sim_time_bool}],
+                        respawn=True
+                    )
+                ]
             )
         ]
-    )
+
+    bridge_node = OpaqueFunction(function=make_bridge_node)
     
     # Spawn vehicle function
     def spawn_vehicle_func(context):
@@ -176,19 +174,6 @@ def generate_launch_description():
         ]
     )
     
-    # LaserScan to PointCloud2 converter
-    laserscan_converter = TimerAction(
-        period=12.0,
-        actions=[
-            Node(
-                package='offroad_gazebo_integration',
-                executable='laserscan_to_pointcloud',
-                output='screen',
-                parameters=[{'use_sim_time': use_sim_time}]
-            )
-        ]
-    )
-
     # Topic relay for stable /vehicle/* and /ego/odometry aliases
     topic_relay = TimerAction(
         period=13.0,
@@ -201,6 +186,35 @@ def generate_launch_description():
             )
         ]
     )
+
+    # Static TF: base_link -> velodyne (lidar frame for RViz)
+    # Pose varies by vehicle: inspection (0.3,0,0.35), prius (0,0,1.55), ackermann (0,0,0.5)
+    def make_static_tf(context):
+        model = context.launch_configurations.get('vehicle_model', 'inspection_robot')
+        poses = {
+            'inspection_robot': ('0.3', '0', '0.35'),
+            'prius_vehicle': ('0', '0', '1.55'),
+            'ackermann_vehicle': ('0', '0', '0.5'),
+        }
+        x, y, z = poses.get(model, poses['inspection_robot'])
+        use_sim_val = context.launch_configurations.get('use_sim_time', 'true')
+        use_sim_time_bool = use_sim_val in ('true', '1', 'yes')
+        return [
+            TimerAction(
+                period=9.0,
+                actions=[
+                    Node(
+                        package='tf2_ros',
+                        executable='static_transform_publisher',
+                        name='base_link_to_velodyne',
+                        arguments=[x, y, z, '0', '0', '0', 'base_link', 'velodyne'],
+                        parameters=[{'use_sim_time': use_sim_time_bool}]
+                    )
+                ]
+            )
+        ]
+
+    static_tf = OpaqueFunction(function=make_static_tf)
     
     return LaunchDescription([
         # Arguments
@@ -216,9 +230,9 @@ def generate_launch_description():
         # Nodes and processes
         gazebo_server,
         gazebo_client,
-        bridge_node,
         spawn_vehicle,
+        static_tf,
+        bridge_node,
         sensor_converter,
-        laserscan_converter,
         topic_relay,
     ])

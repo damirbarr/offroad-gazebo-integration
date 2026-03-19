@@ -12,7 +12,6 @@ TOPICS=(
   /vehicle/gps
   /mavros/global_position/compass_hdg
   /mavros/global_position/raw/gps_vel
-  /lidar
   /velodyne_points
   /vehicle/lidar/points
 )
@@ -22,7 +21,7 @@ gz topic -l | grep -E "(/clock|/cmd_|/odom|/imu|/gps|/lidar)" | sort
 
 echo
 echo "=== ROS2 topics (key contract) ==="
-ros2 topic list -t | sort | grep -E "^(/clock|/odom|/vehicle/odom|/ego/odometry|/imu/data|/vehicle/imu|/mavros/global_position/global|/vehicle/gps|/mavros/global_position/compass_hdg|/mavros/global_position/raw/gps_vel|/lidar|/velodyne_points|/vehicle/lidar/points)(\\s|$)" || true
+ros2 topic list -t | sort | grep -E "^(/clock|/odom|/vehicle/odom|/ego/odometry|/imu/data|/vehicle/imu|/mavros/global_position/global|/vehicle/gps|/mavros/global_position/compass_hdg|/mavros/global_position/raw/gps_vel|/velodyne_points|/vehicle/lidar/points)(\\s|$)" || true
 
 for topic in "${TOPICS[@]}"; do
   echo

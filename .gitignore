@@ -71,3 +71,6 @@ debian/debhelper-build-stamp
 debian/files
 debian/*.debhelper
 *.mp4
+output.json
+pytest_html_report.html
+archive/

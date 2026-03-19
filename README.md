@@ -249,8 +249,7 @@ Pre-configured worlds in `worlds/`:
 - `/mavros/global_position/global` (sensor_msgs/NavSatFix) - GPS position
 - `/mavros/global_position/compass_hdg` (std_msgs/Float64) - Heading derived from IMU
 - `/mavros/global_position/raw/gps_vel` (geometry_msgs/TwistStamped) - GPS velocity placeholder
-- `/lidar` (sensor_msgs/LaserScan) - LiDAR scan
-- `/velodyne_points` (sensor_msgs/PointCloud2) - Point cloud converted from `/lidar`
+- `/velodyne_points` (sensor_msgs/PointCloud2) - 3D LiDAR point cloud (bridged directly from Gazebo)
 
 **Compatibility aliases published alongside the raw topics:**
 - `/vehicle/odom` (nav_msgs/Odometry) - Vehicle odometry alias

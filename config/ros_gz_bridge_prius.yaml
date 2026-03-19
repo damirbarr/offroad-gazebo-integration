@@ -1,0 +1,51 @@
+# ros_gz_bridge configuration for prius_vehicle and ackermann_vehicle.
+# Lidar is on base_link with sensor lidar_sensor (3D PointCloud2).
+
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "ignition.msgs.Clock"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/cmd_vel"
+  gz_topic_name: "/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "ignition.msgs.Twist"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/cmd_drive"
+  gz_topic_name: "/cmd_drive"
+  ros_type_name: "geometry_msgs/msg/Vector3"
+  gz_type_name: "ignition.msgs.Vector3d"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/cmd_gear"
+  gz_topic_name: "/cmd_gear"
+  ros_type_name: "std_msgs/msg/Int32"
+  gz_type_name: "ignition.msgs.Int32"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "/odom"
+  gz_topic_name: "/odom"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "ignition.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/imu/data"
+  gz_topic_name: "/imu/data"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "ignition.msgs.IMU"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/mavros/global_position/global"
+  gz_topic_name: "/mavros/global_position/global"
+  ros_type_name: "sensor_msgs/msg/NavSatFix"
+  gz_type_name: "ignition.msgs.NavSat"
+  direction: GZ_TO_ROS
+
+# 3D Lidar: PointCloud2 (prius/ackermann use absolute /lidar -> points at /lidar/points)
+- ros_topic_name: "/velodyne_points"
+  gz_topic_name: "/lidar/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "ignition.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
